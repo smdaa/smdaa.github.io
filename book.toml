@@ -1,0 +1,8 @@
+[book]
+authors = ["smdaa"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+mathjax-support = true
