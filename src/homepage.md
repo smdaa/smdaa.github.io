@@ -1,6 +1,6 @@
 # Homepage
 
-Hi this is the homepage.
+Hi this is the homepage :).
 
 ## Topics:
 
