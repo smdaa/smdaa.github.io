@@ -1,38 +1,10 @@
-name: Deploy to GitHub Pages
-
-on:
-  push:
-    branches:
-      - main
-
+name: Deploy mdBook
+on: [push]
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
-
-    - name: Setup Rust and Install mdbook
-      run: |
-        curl https://sh.rustup.rs -sSf | sh -s -- -y
-        export PATH="$HOME/.cargo/bin:$PATH"
-        cargo install mdbook
-
-    - name: Install Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '14'
-
-    - name: Install Dependencies
-      run: npm install -g mdbook
-
-    - name: Build Book
-      run: mdbook build
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        deploy_key: ${{ secrets.DEPLOY_KEY }}
-        publish_dir: ./_book
-        publish_branch: gh-pages
+      - uses: actions/checkout@v2
+      - uses: XAMPPRocky/deploy-mdbook@v1.1
+        with:
+            token: ${{ secrets.GITHUB_TOKEN }}
