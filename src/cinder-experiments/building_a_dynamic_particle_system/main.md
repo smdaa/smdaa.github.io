@@ -1,5 +1,9 @@
 # Building a Dynamic Particle System
 
+![Grid Image](final.webp)
+
+Link to source code on github : [Dynamic Particle System Source Code](https://github.com/smdaa/creative-coding/blob/main/src/example_1/main.cpp)
+
 ## Creating a particle system
 Let's start by creating the particle object. A particle has the following properties: a radius \\(r\\), a position \\((x, y)\\), a velocity \\((v_x, v_y)\\), and an optional color.
 
@@ -268,5 +272,3 @@ you can experiment with the different variables and see what you will get:
 #define BG_COLOR Color(0.6f, 0.6f, 0.6f)
 #define MESH_COLOR ColorA(0.0f, 0.0f, 0.0f, 0.05f)
 ```
-
-[Full source code](https://github.com/smdaa/creative-coding/blob/main/src/example_1/main.cpp)
