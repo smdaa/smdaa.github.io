@@ -61,7 +61,30 @@ The pressure term disappeared because it is a gradient field.
 The equation above is the basis of our smoke simulation.
 
 ### Thermal Buoyancy
-Thermal buoyancy refers to the upward force exerted on an object immersed in a fluid (liquid or gas) due to temperature differences within that fluid.
+Thermal buoyancy refers to the upward force exerted on an object immersed in a fluid (liquid or gas) due to temperature differences within that fluid. 
 \\[
 F_{buoy} = (\alpha d - \beta(T - T_{amb})) \vec{g}
 \\]
+
+where:
+- \\(d\\) represents smoke concentration.
+- \\(\alpha\\) and \\(\beta\\) are two constants.
+- \\(T\\) is the temperature at the current cell.
+- \\(T_{amb}\\) is the average temperature of the fluid grid.
+- \\(\vec{g}\\) is is the gravity.
+
+In other words smoke is hotter than air that's why it gets pushed up.
+
+### Turbulence
+Turbulence refers to a swirling-like motion which represents how much the velocity field rotates around a point. So naturally it is represented with the curl operator:
+\\[
+\vec{w} = \nabla \times \vec{u}
+\\]
+
+Nevertheless, in the calculation of the turbulence equation (not shown here), the flow disperses, leading to the loss of some turbulence. To restore a portion of the lost turbulence, a new technique, turbulence confinement, is introduced:
+
+\\[
+F_{vortCof} = \frac{\nabla || \vec{w} ||}{|| \nabla || \vec{w} || ||} \times \vec{w}
+\\]
+
+The core concept is to identify the positions of vortices and apply a body force to enhance the rotational motion around each vortex or cell.
