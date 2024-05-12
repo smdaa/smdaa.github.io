@@ -4,7 +4,7 @@ The following article is an implementation and a summarization of this paper:
 
 [Real-Time Fluid Dynamics for Games](http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf)
 
-Link to source code on github : [Simulating Smoke Source Code](https://github.com/smdaa/creative-coding/blob/main/src/example_2)
+Link to source code on Github : [Simulating Smoke Source Code](https://github.com/smdaa/creative-coding/blob/main/src/example_2)
 
 <p align="center">
   <img src="fluid_render.png">
@@ -30,7 +30,7 @@ $$
 $$
 \frac{\partial \rho}{\partial t} = -(\vec{u} . \nabla) \rho + \kappa \nabla ^ 2 \rho + s
 $$
-where
+where:
 - \\(\vec{u}\\) represents the vector field of the fluid, meaning for each point in space we have a velocity vector.
 - \\(\frac{\partial \vec{u}}{\partial t}\\) represents the rate of change of velocity with respect to time. In other words, it describes how the velocity field \\(\vec{u}\\) changes over time at each point in space.
 - \\(- (\vec{u} \cdot \nabla) \vec{u}\\) denotes the convective acceleration term. It accounts for how the velocity field "advects" itself, meaning how the velocity field carries and transports fluid particles along its path.
@@ -40,11 +40,11 @@ To understand why \\(- (\vec{u} \cdot \nabla) \vec{u}\\) is a vector, consider i
        - (\vec{u} \cdot \nabla) \vec{u} = - \left(u \frac{\partial}{\partial x} + v \frac{\partial}{\partial y} + w \frac{\partial}{\partial z}\right)\vec{u}
        $$
        Here, \\(\vec{u} = (u, v, w)\\) represents the velocity field in three dimensions.
-       When we apply the operator \\(- \left(u \frac{\partial}{\partial x} + v \frac{\partial}{\partial y} + w \frac{\partial}{\partial z}\right)\\) to \\(\vec{u}\\) we're essentially taking the derivative of each component of \\(\vec{u}\\) with respect to its corresponding spatial coordinate (\\(x\\), \\(y\\), or \\(z\\)) and then multiplying them by the components of \\(\vec{u}\\).
-       Each resulting scalar expression, when taken together, forms a vector. Therefore, \\(- (\vec{u} \cdot \nabla) \vec{u}\\) represents a vector field, as it consists of three scalar components which, when combined, create a vector.
+       When we apply the operator \\(- \left(u \frac{\partial}{\partial x} + v \frac{\partial}{\partial y} + w \frac{\partial}{\partial z}\right)\\) to \\(\vec{u}\\) we are essentially taking the derivative of each component of \\(\vec{u}\\) with respect to its corresponding spatial coordinate (\\(x\\), \\(y\\), or \\(z\\)) and then multiplying them by the components of \\(\vec{u}\\).
+       Each resulting scalar expression, when taken together, forms a vector. Therefore, \\(- (\vec{u} \cdot \nabla) \vec{u}\\) represents a vector field, as it consists of three scalar components.
 - \\(\nu \nabla ^ 2 \vec{u}\\) is the viscous diffusion term. It represents the dissipation of kinetic energy due to viscosity, which tends to smooth out velocity gradients within the fluid.
-- \\(\vec{f}\\) represents external forces acting on the fluid, such as gravity or electromagnetic forces.
-- \\(\rho\\) is the density field of the fluid,  a continuous function which for every point in space tells us the amount of dust particles present
+- \\(\vec{f}\\) represents external forces acting on the fluid.
+- \\(\rho\\) is the density field of the fluid,  a continuous function which for every point in space tells us the amount of particles present.
 - \\(\frac{\partial \rho}{\partial t}\\) represents the rate of change of density with respect to time. It describes how the density of the fluid changes over time at each point in space.
 - \\(-(\vec{u} \cdot \nabla) \rho\\) is the convective term for density. It describes how the density field is advected by the velocity field.
 - \\(\kappa \nabla ^ 2 \rho\\) is the diffusion term for density. Similar to the viscous diffusion term in the velocity equation, it represents the smoothing out of density gradients within the fluid.
@@ -52,13 +52,13 @@ To understand why \\(- (\vec{u} \cdot \nabla) \vec{u}\\) is a vector, consider i
 
 ## Implementation
 ### Fluid grid
-We'll describe the fluid's behavior by discretizing a 2D plane. This involves dividing the space into a grid of cells and measuring fluid properties (velocity and density) at the center of each cell.
+We will describe the fluid's behavior by discretizing a 2D plane. This involves dividing the space into a grid of cells and measuring fluid properties (velocity and density) at the center of each cell.
 
 <p align="center">
   <img src="fluid_grid.png">
 </p>
 
-We will define a **FluidGrid** class as follows
+We will define a **FluidGrid** class as follows:
 
 ```C
 class FluidGrid {
@@ -81,17 +81,17 @@ private:
 };
 ```
 
-**densityGrid**, **velocityGridX**, **velocityGridY** store the current density and velocity values,while **densitySourceGrid**, **velocitySourceGridX**, **velocitySourceGridY** indicate the fluid sources, representing the terms \\(s\\) and \\(\vec{f}\\) in the Navier-Stokes equations. Additionally **densityGridOld**, **velocityGridXOld**, **velocityGridYOld** retain the density and velocity values from the previous calculation.
+**densityGrid**, **velocityGridX**, and **velocityGridY** store the current density and velocity values, while **densitySourceGrid**, **velocitySourceGridX**, and **velocitySourceGridY** indicate the fluid sources, representing the terms \\(s\\) and \\(\vec{f}\\) in the Navier-Stokes equations. Additionally **densityGridOld**, **velocityGridXOld**, and **velocityGridYOld** retain the density and velocity values from the previous calculation.
 
 ### Solving for density
-Initially, we'll outline the solution method for a density field in motion within a constant velocity field that remains unchanged over time.
+Initially, we will outline the solution method for a density field in motion within a constant velocity field that remains unchanged over time.
 Let's consider the density equation:
 $$
 \frac{\partial \rho}{\partial t} = -(\vec{u} . \nabla) \rho + \kappa \nabla ^ 2 \rho + s
 $$
 
 #### Adding source
-The first term from the right says that the density increases due to sources, this can be easily implemented with the following function.
+The first term from the right says that the density increases due to sources, this can be easily implemented with the following function:
 
 ```C
 void FluidGrid::addSource(int numRows, int numColumns,
@@ -107,7 +107,7 @@ void FluidGrid::addSource(int numRows, int numColumns,
 }
 ```
 
-`#pragma omp parallel for` is a component of [OpenMP](https://www.openmp.org/wp-content/uploads/OpenMPRefGuide-5.2-Web-2024.pdf), a library facilitating parallel programming in C/C++. It's employed before a for loop to distribute its iterations among multiple threads. Consequently, the loop iterations can be executed concurrently, thereby diminishing the overall execution time.
+`#pragma omp parallel for` is a component of [OpenMP](https://www.openmp.org/wp-content/uploads/OpenMPRefGuide-5.2-Web-2024.pdf), a library facilitating parallel programming in C/C++. It is employed before a for loop to distribute its iterations among multiple threads. Consequently, the loop iterations can be executed concurrently, thereby diminishing the overall execution time.
 
 Opting to parallelize the outer loop instead of the inner loop is frequently more effective because it minimizes overhead. Each parallel region, initiated by `#pragma omp parallel`, incurs overhead, such as the creation and destruction of threads.
 
@@ -121,23 +121,25 @@ void FluidGrid::stepDensity(int diffusionFactor, int gaussSeidelIterations,
 ```
 
 #### Diffusion
-Diffusion represents the second term in the equation (\\(\kappa \nabla ^ 2 \rho\\)), involving the dispersion of density across the grid cells. We'll assume that each grid cell can only exchange density with its four immediate neighbors.
+Diffusion represents the second term in the equation (\\(\kappa \nabla ^ 2 \rho\\)), involving the dispersion of density across the grid cells. We will assume that each grid cell can only exchange density with its four immediate neighbors.
 
 <p align="center">
   <img src="diffusion_grid.png">
 </p>
 
-Each cell will lose some of its density to it's four neighbors, but will also gain some of the density of each of its neighbors:
+Each cell will lose some of its density to its four neighbors, but will also gain some of the density of each of its neighbors:
 $$
 \rho_{t + \Delta t}[i, j] - \rho_{t}[i, j] = a  (\rho_{t}[i-1, j] + \rho_{t}[i+1, j] + \rho_{t}[i, j-1] + \rho_{t}[i, j+1] - 4 \rho_{t}[i, j])
 $$
 Where \\(a\\) is a diffusion factor.
-A stable method given by the paper's author that revolves around finding densities which when diffused backward in time yield the densities started with, meaning we will solve for \\((\rho_{t + \Delta t}[i, j])\\) given the equations
+
+A stable method given by the paper's author revolves around finding densities which, when diffused backward in time, yields the densities started with, meaning we will solve for \\((\rho_{t + \Delta t}[i, j])\\) in the equations:
 $$
 \rho_{t}[i, j] = \rho_{t + \Delta t}[i, j] - a (\rho_{t + \Delta t}[i-1, j] + \rho_{t + \Delta t}[i+1, j] + \rho_{t + \Delta t}[i, j-1] + \rho_{t + \Delta t}[i, j+1] - 4 \rho_{t + \Delta t}[i, j])
 $$
-Let's write the system as a matrix product.
-let \\(x_t\\) and \\(x_{t +\Delta t}\\) be
+Let's write the system as a matrix product:
+
+Let \\(x_t\\) and \\(x_{t +\Delta t}\\) be
 $$
 \begin{array}{cc}
 x_t = & \begin{pmatrix}
@@ -165,11 +167,11 @@ x_{t + \Delta t} = & \begin{pmatrix}
 \end{pmatrix}
 \end{array}
 $$
-We have 
+We have:
 $$
 x_t = (I - a A) x_{t + \Delta t}
 $$
-where 
+where:
 $$
 A_{ij} = 
 \begin{cases} 
@@ -210,7 +212,31 @@ void FluidGrid::diffuse(int numRows, int numColumns,
 }
 ```
 
-The **setBounds** function determines how the field behaves at the screen edges. Parameter **b** specifies which aspect of the field's boundaries we're adjusting (density, velocityX, or velocityY). Further details will be provided later.
+The **setBounds** function determines how the field behaves at the screen edges. Parameter **b** specifies which aspect of the field's boundaries we're adjusting (density, velocityX, or velocityY):
+
+```C
+void FluidGrid::setBounds(int numRows, int numColumns,
+                          std::vector<std::vector<float>> &grid, int b) {
+#pragma omp parallel for
+  for (int i = 1; i < numRows - 1; ++i) {
+    grid[i][0] = (b == 2) ? -grid[i][1] : grid[i][1];
+    grid[i][numColumns - 1] =
+        (b == 2) ? -grid[i][numColumns - 2] : grid[i][numColumns - 2];
+  }
+#pragma omp parallel for
+  for (int j = 1; j < numColumns - 1; ++j) {
+    grid[0][j] = (b == 1) ? -grid[1][j] : grid[1][j];
+    grid[numRows - 1][j] =
+        (b == 1) ? -grid[numRows - 2][j] : grid[numRows - 2][j];
+  }
+  grid[0][0] = 0.5 * (grid[1][0] + grid[0][1]);
+  grid[0][numColumns - 1] =
+      0.5 * (grid[1][numColumns - 1] + grid[0][numColumns - 2]);
+  grid[numRows - 1][0] = 0.5 * (grid[numRows - 1][1] + grid[numRows - 2][0]);
+  grid[numRows - 1][numColumns - 1] = 0.5 * (grid[numRows - 1][numColumns - 2] +
+                                             grid[numRows - 2][numColumns - 1]);
+}
+```
 
 And we can update the **stepDensity** method:
 
@@ -228,7 +254,7 @@ This part makes the density move in the same direction as the velocity (the thir
 
 The paper suggests thinking of the density as particles. We look for particles that land exactly in the middle of a grid square in one time step. The density these particles have is figured out by a simple mix of the density where the particles started.
 
-In simpler terms, for each density cell \\(\rho_{t + \Delta t}[i, j]\\) we follow the cell’s center \\([i, j]\\) backwards through the velocity field. Then \\(\rho_{t + \Delta t}[i, j]\\) will will be assigned an interpolated density based on the position where the particles started.
+In simpler terms, for each density cell \\(\rho_{t + \Delta t}[i, j]\\) we follow the cell’s center \\([i, j]\\) backwards through the velocity field. Then \\(\rho_{t + \Delta t}[i, j]\\) will be assigned an interpolated density based on the position where the particles started.
 
 <p align="center">
   <img src="advection_grid.png">
@@ -265,7 +291,7 @@ void FluidGrid::advect(int numRows, int numColumns,
 }
 ```
 
-Now we can Finalize the **stepDensity** method:
+Now we can finalize the **stepDensity** method:
 
 ```C
 void FluidGrid::stepDensity(int diffusionFactor, int gaussSeidelIterations,
@@ -282,7 +308,7 @@ void FluidGrid::stepDensity(int diffusionFactor, int gaussSeidelIterations,
 
 ### Solving for velocity
 
-let's consider the velocity equation:
+Let's consider the velocity equation:
 $$
 \frac{\partial \vec{u}}{\partial t} = - (\vec{u} . \nabla) \vec{u} + \nu \nabla ^ 2 \vec{u} + \vec{f}
 $$
@@ -314,25 +340,25 @@ void FluidGrid::stepVelocity(int viscosityFactor, int gaussSeidelIterations,
 ```
 
 #### Projection
-The [Helmholtz decomposition](https://en.wikipedia.org/wiki/Helmholtz_decomposition) states that any vector field can be resolved into the sum of a curl free vector field and a divergence free vector field, ie any vector field \\(\vec{w}\\) can be decomposed into the form:
+The [Helmholtz decomposition](https://en.wikipedia.org/wiki/Helmholtz_decomposition) states that any vector field can be resolved into the sum of a curl free vector field and a divergence free vector field, i.e. any vector field \\(\vec{w}\\) can be decomposed into the form:
 
 $$
 \vec{w} = \vec{v} + \nabla q
 $$
 
-where \\(\nabla \vec{v} = 0\\) and \\(q\\) is a scalar field.
+Where \\(\nabla \vec{v} = 0\\) and \\(q\\) is a scalar field.
 
 The aim is to use projection to make the velocity a mass conserving, in other words to ensure the incompressibility condition of the fluid flow.
 
 Initially, we compute the divergence field of our velocity utilizing the average finite difference method. Following this, we employ a linear solver to solve the Poisson equation. Finally, we subtract the gradient of this field, resulting in a velocity field that conserves mass.
 
-In more details if we have 
+In more details if we have:
 
 $$
 \vec{w} = \vec{v} + \nabla q
 $$
 
-Then
+Then:
 
 $$
 \nabla \vec{w} = \nabla ^ 2 q
@@ -389,7 +415,7 @@ void FluidGrid::project(int numRows, int numColumns,
 #### Advection
 This part is similar to the density equation, therefore we will reuse the same routine **advect**
 
-Now we can Finalize the **stepVelocity** method:
+Now we can finalize the **stepVelocity** method:
 
 ```C
 void FluidGrid::stepVelocity(int viscosityFactor, int gaussSeidelIterations,
@@ -418,7 +444,7 @@ void FluidGrid::stepVelocity(int viscosityFactor, int gaussSeidelIterations,
 ### Drawing The Fluid
 
 #### Naive method
-The straight forward method would be to draw each cell in the 2d grid individually using **cinder::gl::drawSolidRect**, and use the density for the alpha channel.
+The straight forward method would be to draw each cell in the 2D grid individually using **cinder::gl::drawSolidRect**, and use the density for the alpha channel.
 
 ```C
 float cellWidth = (float)getWindowWidth() / numColumns;
@@ -438,13 +464,13 @@ for (int i = 0; i < numRows; ++i) {
 }
 ```
 
-however ths is very slow and inefficient instead we will use **cinder::gl::VboMesh**.
+However, ths is very slow and inefficient, instead we will use **cinder::gl::VboMesh**.
 
 #### VboMesh method
 
-**cinder::gl::VboMesh** is a class in the Cinder library that serves as a container for a Vertex Buffer Object (VBO). A Vertex Buffer Object (VBO) is a feature in OpenGL that provides methods for uploading vertex data, such as position, normal vector, color, etc., to the video device for non-immediate-mode rendering1.
+**cinder::gl::VboMesh** is a class in the Cinder library that serves as a container for a Vertex Buffer Object (VBO). A Vertex Buffer Object (VBO) is a feature in OpenGL that provides methods for uploading vertex data, such as position, normal vector, and color, to the video device for non-immediate-mode rendering1.
 
-We will use [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV) (Hue Saturation Value) color coordinate system to have some nice looking cyclic color:
+We will use [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV) (Hue Saturation Value) color coordinate system to have some nice looking cyclic colors:
 
 ```C
 ci::gl::VboMeshRef fluidMesh;
@@ -499,9 +525,9 @@ void FluidApp::updateMesh() {
 ```
 
 ### Getting user input
-In order to make our application interactive, we’ll utilize the user’s mouse movements as a means to determine density and velocity. The concept is to initiate a click and perform a dragging motion to introduce fluid, with the velocity corresponding to the direction of the drag.
+In order to make our application interactive, we will utilize the user’s mouse movements as a means to determine density and velocity. The concept is to initiate a click and perform a dragging motion to introduce fluid, with the velocity corresponding to the direction of the drag.
 
-To do so we will use the **cinder::app::MouseEvent**
+To do so we will use the **cinder::app::MouseEvent**:
 
 ```C
 void FluidApp::setup() {
@@ -537,4 +563,3 @@ void FluidApp::onMouseUp(ci::app::MouseEvent event) {
 ```
 
 That's all folks, thanks for reading.
-e
