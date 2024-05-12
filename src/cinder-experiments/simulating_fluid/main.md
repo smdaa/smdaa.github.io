@@ -4,7 +4,7 @@ The following article is an implementation and a summarization of this paper:
 
 [Real-Time Fluid Dynamics for Games](http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf)
 
-Link to source code on Github : [Simulating Smoke Source Code](https://github.com/smdaa/creative-coding/blob/main/src/example_2)
+Link to source code on Github : [Simulating fluid source code](https://github.com/smdaa/creative-coding/blob/main/src/example_2)
 
 <p align="center">
   <img src="fluid_render.png">
