@@ -4,5 +4,9 @@ language = "en"
 multilingual = false
 src = "src"
 
+[preprocessor.toc]
+command = "mdbook-toc"
+renderer = ["html"]
+
 [output.html]
 mathjax-support = true

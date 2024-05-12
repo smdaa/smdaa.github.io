@@ -6,6 +6,10 @@ The following article is an implementation and a summarization of this paper:
 
 Link to source code on github : [Simulating Smoke Source Code](https://github.com/smdaa/creative-coding/blob/main/src/example_2)
 
+
+## Content
+<!-- toc -->
+
 ## Theoretical background
 The Navier-Stokes equations serve as a precise mathematical framework for describing fluid flows found in nature, yet solving them can be quite challenging. Analytical solutions are only feasible in very basic scenarios. In practical applications, the priority is to ensure that simulations are both visually convincing and computationally efficient.
 

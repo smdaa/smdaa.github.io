@@ -4,6 +4,9 @@
 
 Link to source code on github : [Dynamic Particle System Source Code](https://github.com/smdaa/creative-coding/blob/main/src/example_1/main.cpp)
 
+## Content
+<!-- toc -->
+
 ## Creating a particle system
 Let's start by creating the particle object. A particle has the following properties: a radius \\(r\\), a position \\((x, y)\\), a velocity \\((v_x, v_y)\\), and an optional color.
 
