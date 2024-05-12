@@ -6,9 +6,19 @@ The following article is an implementation and a summarization of this paper:
 
 Link to source code on github : [Simulating Smoke Source Code](https://github.com/smdaa/creative-coding/blob/main/src/example_2)
 
+<p align="center">
+  <img src="fluid_render.png">
+</p>
 
 ## Content
 <!-- toc -->
+
+## Results
+
+<video width="auto" height="auto" controls>
+  <source src="results.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
 
 ## Theoretical background
 The Navier-Stokes equations serve as a precise mathematical framework for describing fluid flows found in nature, yet solving them can be quite challenging. Analytical solutions are only feasible in very basic scenarios. In practical applications, the priority is to ensure that simulations are both visually convincing and computationally efficient.
@@ -303,4 +313,228 @@ void FluidGrid::stepVelocity(int viscosityFactor, int gaussSeidelIterations,
 }
 ```
 
+#### Projection
+The [Helmholtz decomposition](https://en.wikipedia.org/wiki/Helmholtz_decomposition) states that any vector field can be resolved into the sum of a curl free vector field and a divergence free vector field, ie any vector field \\(\vec{w}\\) can be decomposed into the form:
+
+$$
+\vec{w} = \vec{v} + \nabla q
+$$
+
+where \\(\nabla \vec{v} = 0\\) and \\(q\\) is a scalar field.
+
+The aim is to use projection to make the velocity a mass conserving, in other words to ensure the incompressibility condition of the fluid flow.
+
+Initially, we compute the divergence field of our velocity utilizing the average finite difference method. Following this, we employ a linear solver to solve the Poisson equation. Finally, we subtract the gradient of this field, resulting in a velocity field that conserves mass.
+
+In more details if we have 
+
+$$
+\vec{w} = \vec{v} + \nabla q
+$$
+
+Then
+
+$$
+\nabla \vec{w} = \nabla ^ 2 q
+$$
+
+This is a Poisson equation, using the finite difference numerical method to discretize the 2-dimensional Poisson equation:
+
+$$
+\nabla^2 q_{i,j} = \frac{q_{i+1,j} + q_{i-1,j} + q_{i,j+1} + q_{i,j-1} - 4q_{i,j}}{\Delta x^2}
+$$
+
+This equation can be solved iteratively until convergence with Gauss-Seidel relaxation, which gives us the scalar field \\(q\\). We can then subtract the gradient of this field from the original vector field \\(\vec{w}\\) to obtain the divergence-free vector field \\(\vec{v}\\), which conserves mass. This completes the projection step.
+
+```C
+void FluidGrid::project(int numRows, int numColumns,
+                        std::vector<std::vector<float>> &velocityGridX,
+                        std::vector<std::vector<float>> &velocityGridY,
+                        std::vector<std::vector<float>> &p,
+                        std::vector<std::vector<float>> &div,
+                        int gaussSeidelIterations) {
+#pragma omp parallel for
+  for (int i = 1; i < numRows - 1; ++i) {
+    for (int j = 1; j < numColumns - 1; ++j) {
+      div[i][j] = -0.5 * (velocityGridX[i + 1][j] - velocityGridX[i - 1][j] +
+                          velocityGridY[i][j + 1] - velocityGridY[i][j - 1]);
+      p[i][j] = 0.0;
+    }
+  }
+  setBounds(numRows, numColumns, div, 0);
+  setBounds(numRows, numColumns, p, 0);
+  for (int k = 0; k < gaussSeidelIterations; ++k) {
+#pragma omp parallel for
+    for (int i = 1; i < numRows - 1; ++i) {
+      for (int j = 1; j < numColumns - 1; ++j) {
+        p[i][j] = (div[i][j] + p[i - 1][j] + p[i + 1][j] + p[i][j - 1] +
+                   p[i][j + 1]) /
+                  4;
+      }
+    }
+    setBounds(numRows, numColumns, p, 0);
+  }
+#pragma omp parallel for
+  for (int i = 1; i < numRows - 1; ++i) {
+    for (int j = 1; j < numColumns - 1; ++j) {
+      velocityGridX[i][j] -= 0.5 * (p[i + 1][j] - p[i - 1][j]);
+      velocityGridY[i][j] -= 0.5 * (p[i][j + 1] - p[i][j - 1]);
+    }
+  }
+  setBounds(numRows, numColumns, velocityGridX, 1);
+  setBounds(numRows, numColumns, velocityGridY, 2);
+}
+```
+
 #### Advection
+This part is similar to the density equation, therefore we will reuse the same routine **advect**
+
+Now we can Finalize the **stepVelocity** method:
+
+```C
+void FluidGrid::stepVelocity(int viscosityFactor, int gaussSeidelIterations,
+                             float timeStep) {
+  addSource(numRows, numColumns, velocityGridX, velocitySourceGridX, timeStep);
+  addSource(numRows, numColumns, velocityGridY, velocitySourceGridY, timeStep);
+  diffuse(numRows, numColumns, velocityGridXOld, velocityGridX,
+          gaussSeidelIterations, viscosityFactor, 1, timeStep);
+  diffuse(numRows, numColumns, velocityGridYOld, velocityGridY,
+          gaussSeidelIterations, viscosityFactor, 2, timeStep);
+  project(numRows, numColumns, velocityGridXOld, velocityGridYOld,
+          velocityGridX, velocityGridY, gaussSeidelIterations);
+  advect(numRows, numColumns, velocityGridX, velocityGridXOld, velocityGridXOld,
+         velocityGridYOld, 1, timeStep);
+  advect(numRows, numColumns, velocityGridY, velocityGridYOld, velocityGridXOld,
+         velocityGridYOld, 2, timeStep);
+  project(numRows, numColumns, velocityGridX, velocityGridY, velocityGridXOld,
+          velocityGridYOld, gaussSeidelIterations);
+  velocitySourceGridX = std::vector<std::vector<float>>(
+      numRows, std::vector<float>(numColumns, 0.0f));
+  velocitySourceGridY = std::vector<std::vector<float>>(
+      numRows, std::vector<float>(numColumns, 0.0f));
+}
+```
+
+### Drawing The Fluid
+
+#### Naive method
+The straight forward method would be to draw each cell in the 2d grid individually using **cinder::gl::drawSolidRect**, and use the density for the alpha channel.
+
+```C
+float cellWidth = (float)getWindowWidth() / numColumns;
+float cellHeight = (float)getWindowHeight() / numRows;
+
+for (int i = 0; i < numRows; ++i) {
+      for (int j = 0; j < numColumns; ++j) {
+        float x = j * cellWidth;
+        float y = i * cellHeight;
+
+        float density = densityGrid[i][j];
+        ColorA color(1.0f, 1.0f, 1.0f, density);
+
+        gl::color(color);
+        gl::drawSolidRect(Rectf(x, y, x + cellWidth, y + cellHeight));
+      }
+}
+```
+
+however ths is very slow and inefficient instead we will use **cinder::gl::VboMesh**.
+
+#### VboMesh method
+
+**cinder::gl::VboMesh** is a class in the Cinder library that serves as a container for a Vertex Buffer Object (VBO). A Vertex Buffer Object (VBO) is a feature in OpenGL that provides methods for uploading vertex data, such as position, normal vector, color, etc., to the video device for non-immediate-mode rendering1.
+
+We will use [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV) (Hue Saturation Value) color coordinate system to have some nice looking cyclic color:
+
+```C
+ci::gl::VboMeshRef fluidMesh;
+
+void FluidApp::initMesh() {
+  std::vector<ci::vec2> positions;
+  std::vector<ci::ColorA> colors;
+  for (int i = 0; i < numRows; ++i) {
+    for (int j = 0; j < numColumns; ++j) {
+      float x0 = j * gridResolution;
+      float y0 = i * gridResolution;
+      float x1 = (j + 1) * gridResolution;
+      float y1 = (i + 1) * gridResolution;
+
+      positions.push_back(ci::vec2(x0, y0));
+      positions.push_back(ci::vec2(x1, y0));
+      positions.push_back(ci::vec2(x0, y1));
+
+      positions.push_back(ci::vec2(x1, y0));
+      positions.push_back(ci::vec2(x1, y1));
+      positions.push_back(ci::vec2(x0, y1));
+
+      for (int k = 0; k < 6; ++k) {
+        colors.push_back(
+            ci::ColorA(1.0f, 1.0f, 1.0f, fluidGrid.densityGrid[i][j]));
+      }
+    }
+  }
+
+  fluidMesh = ci::gl::VboMesh::create(positions.size(), GL_TRIANGLES,
+                                      {ci::gl::VboMesh::Layout()
+                                           .attrib(ci::geom::POSITION, 2)
+                                           .attrib(ci::geom::COLOR, 4)});
+  fluidMesh->bufferAttrib(ci::geom::POSITION, positions);
+  fluidMesh->bufferAttrib(ci::geom::COLOR, colors);
+}
+
+void FluidApp::updateMesh() {
+  std::vector<ci::ColorA> colors;
+  for (int i = 0; i < numRows; ++i) {
+    for (int j = 0; j < numColumns; ++j) {
+      float density = fluidGrid.densityGrid[i][j];
+      float hue = 0.5f + 0.1f * sin(2.0f * M_PI * density);
+      ci::ColorA color = ci::ColorA(ci::CM_HSV, hue, 1.0f, 1.0f, density);
+      for (int k = 0; k < 6; ++k) {
+        colors.push_back(color);
+      }
+    }
+  }
+  fluidMesh->bufferAttrib(ci::geom::COLOR, colors);
+}
+```
+
+### Getting user input
+In order to make our application interactive, we’ll utilize the user’s mouse movements as a means to determine density and velocity. The concept is to initiate a click and perform a dragging motion to introduce fluid, with the velocity corresponding to the direction of the drag.
+
+To do so we will use the **cinder::app::MouseEvent**
+
+```C
+void FluidApp::setup() {
+  getWindow()->getSignalMouseDown().connect(
+      [this](ci::app::MouseEvent event) { onMouseDown(event); });
+  getWindow()->getSignalMouseDrag().connect(
+      [this](ci::app::MouseEvent event) { onMouseDrag(event); });
+  getWindow()->getSignalMouseUp().connect(
+      [this](ci::app::MouseEvent event) { onMouseUp(event); });
+}
+
+void FluidApp::onMouseDown(ci::app::MouseEvent event) {
+  lastMousePositon = event.getPos();
+}
+
+void FluidApp::onMouseDrag(ci::app::MouseEvent event) {
+  ci::vec2 currentMousePosition = event.getPos();
+  ci::vec2 dragDirection = currentMousePosition - lastMousePositon;
+
+  int i = currentMousePosition.y / gridResolution;
+  int j = currentMousePosition.x / gridResolution;
+
+  if (i >= 0 && i < numRows && j >= 0 && j < numColumns) {
+    fluidGrid.densitySourceGrid[i][j] += SOURCE_VALUE;
+    fluidGrid.velocitySourceGridX[i][j] += dragDirection.x;
+    fluidGrid.velocitySourceGridY[i][j] += dragDirection.y;
+  }
+}
+
+void FluidApp::onMouseUp(ci::app::MouseEvent event) {
+  lastMousePositon = ci::vec2(0, 0);
+}
+```
+
+That's all folks, thanks for reading.
+e
