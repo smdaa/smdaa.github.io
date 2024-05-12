@@ -81,7 +81,7 @@ $$
 $$
 
 #### Adding source
-The first term from the right says that the density increases due to sources, this can be easly implemented with the following function.
+The first term from the right says that the density increases due to sources, this can be easily implemented with the following function.
 
 ```C
 void FluidGrid::addSource(int numRows, int numColumns,
@@ -269,3 +269,38 @@ void FluidGrid::stepDensity(int diffusionFactor, int gaussSeidelIterations,
       numRows, std::vector<float>(numColumns, 0.0f));
 }
 ```
+
+### Solving for velocity
+
+let's consider the velocity equation:
+$$
+\frac{\partial \vec{u}}{\partial t} = - (\vec{u} . \nabla) \vec{u} + \nu \nabla ^ 2 \vec{u} + \vec{f}
+$$
+
+#### Adding source
+This part is similar to the density equation, therefore we will reuse the same routine **addSource**
+
+```C
+void FluidGrid::stepVelocity(int viscosityFactor, int gaussSeidelIterations,
+                             float timeStep) {
+  addSource(numRows, numColumns, velocityGridX, velocitySourceGridX, timeStep);
+  addSource(numRows, numColumns, velocityGridY, velocitySourceGridY, timeStep);
+}
+```
+
+#### Diffusion
+This part is similar to the density equation, therefore we will reuse the same routine **diffuse**
+
+```C
+void FluidGrid::stepVelocity(int viscosityFactor, int gaussSeidelIterations,
+                             float timeStep) {
+  addSource(numRows, numColumns, velocityGridX, velocitySourceGridX, timeStep);
+  addSource(numRows, numColumns, velocityGridY, velocitySourceGridY, timeStep);
+  diffuse(numRows, numColumns, velocityGridXOld, velocityGridX,
+          gaussSeidelIterations, viscosityFactor, 1, timeStep);
+  diffuse(numRows, numColumns, velocityGridYOld, velocityGridY,
+          gaussSeidelIterations, viscosityFactor, 2, timeStep);
+}
+```
+
+#### Advection
