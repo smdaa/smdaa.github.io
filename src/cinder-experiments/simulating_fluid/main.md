@@ -200,6 +200,8 @@ void FluidGrid::diffuse(int numRows, int numColumns,
 }
 ```
 
+The **setBounds** function determines how the field behaves at the screen edges. Parameter **b** specifies which aspect of the field's boundaries we're adjusting (density, velocityX, or velocityY). Further details will be provided later.
+
 And we can update the **stepDensity** method:
 
 ```C
@@ -208,5 +210,62 @@ void FluidGrid::stepDensity(int diffusionFactor, int gaussSeidelIterations,
   addSource(numRows, numColumns, densityGrid, densitySourceGrid, timeStep);
   diffuse(numRows, numColumns, densityGridOld, densityGrid,
           gaussSeidelIterations, diffusionFactor, 0, timeStep);
+}
+```
+
+#### Advection
+This part makes the density move in the same direction as the velocity (the third term in the equation \\(-(\vec{u} . \nabla) \rho \\)).
+
+The paper suggests thinking of the density as particles. We look for particles that land exactly in the middle of a grid square in one time step. The density these particles have is figured out by a simple mix of the density where the particles started.
+
+In simpler terms, for each density cell \\(\rho_{t + \Delta t}[i, j]\\) we follow the cell’s center \\([i, j]\\) backwards through the velocity field. Then \\(\rho_{t + \Delta t}[i, j]\\) will will be assigned an interpolated density based on the position where the particles started.
+
+<p align="center">
+  <img src="advection_grid.png">
+</p>
+
+```C
+void FluidGrid::advect(int numRows, int numColumns,
+                       std::vector<std::vector<float>> &outGrid,
+                       const std::vector<std::vector<float>> &inGrid,
+                       const std::vector<std::vector<float>> &velocityGridX,
+                       const std::vector<std::vector<float>> &velocityGridY,
+                       int b, float timeStep) {
+  float dtRatio = timeStep * (std::max(numRows, numColumns) - 1);
+#pragma omp parallel for
+  for (int i = 0; i < numRows; ++i) {
+    for (int j = 0; j < numColumns; ++j) {
+      float x = i - dtRatio * velocityGridX[i][j];
+      float y = j - dtRatio * velocityGridY[i][j];
+      x = std::max(0.5f, std::min(static_cast<float>(numRows) - 1.5f, x));
+      y = std::max(0.5f, std::min(static_cast<float>(numColumns) - 1.5f, y));
+      int x0 = (int)x;
+      int y0 = (int)y;
+      int x1 = std::min(x0 + 1, (int)numRows - 1);
+      int y1 = std::min(y0 + 1, (int)numColumns - 1);
+      float sx1 = x - x0;
+      float sx0 = 1.0f - sx1;
+      float sy1 = y - y0;
+      float sy0 = 1.0f - sy1;
+      outGrid[i][j] = sx0 * (sy0 * inGrid[x0][y0] + sy1 * inGrid[x0][y1]) +
+                      sx1 * (sy0 * inGrid[x1][y0] + sy1 * inGrid[x1][y1]);
+    }
+  }
+  setBounds(numRows, numColumns, outGrid, b);
+}
+```
+
+Now we can Finalize the **stepDensity** method:
+
+```C
+void FluidGrid::stepDensity(int diffusionFactor, int gaussSeidelIterations,
+                            float timeStep) {
+  addSource(numRows, numColumns, densityGrid, densitySourceGrid, timeStep);
+  diffuse(numRows, numColumns, densityGridOld, densityGrid,
+          gaussSeidelIterations, diffusionFactor, 0, timeStep);
+  advect(numRows, numColumns, densityGrid, densityGridOld, velocityGridX,
+         velocityGridY, 0, timeStep);
+  densitySourceGrid = std::vector<std::vector<float>>(
+      numRows, std::vector<float>(numColumns, 0.0f));
 }
 ```
