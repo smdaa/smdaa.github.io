@@ -1,4 +1,4 @@
-# Building a Dynamic Particle System
+# Building a dynamic particle system
 
 ![Grid Image](final.webp)
 
