@@ -32,6 +32,8 @@ Our benchmark testing environment is set up on a laptop powered by an AMD Ryzen 
 
 To account for potential variability due to factors such as background process load, we will record the average runtime across multiple runs (10), as a single run may not provide a representative measure.
 
+You can find the full source code [here](https://github.com/smdaa/optimizing-cpu-matrix-multiplication)
+
 ## Naive gemm
 We will start from a straightforward implementation of gemm and we will improve upon it step by step. 
 
