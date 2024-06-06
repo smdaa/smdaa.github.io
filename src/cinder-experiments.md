@@ -9,6 +9,6 @@ Libcinder is an open-source C++ library designed for creative coding and multime
 For additional information and access to the library, please visit [Cinder's official website](https://www.libcinder.org/).
 
 ## Experiments
-* [Building a dynamic particle system](./cinder-experiments/building-a-dynamic-particle-system/main.md)
+* [Building a dynamic particle system](./cinder-experiments/building_a_dynamic_particle_system/main.md)
 
-* [Simulating fluid](./cinder-experiments/simulating-fluid/main.md)
+* [Simulating fluid](./cinder-experiments/simulating_fluid/main.md)
