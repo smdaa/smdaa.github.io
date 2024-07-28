@@ -209,10 +209,9 @@ ndarray *reduce_ndarray(ndarray *arr,
 }
 ```
 For more info check [ndarray.c](https://github.com/smdaa/teeny-autograd-c/blob/main/src/ndarray.c)
-<!---
-### Variable node ([variable.h](https://github.com/smdaa/teeny-autograd-c/blob/main/src/variable.h))
+### Variable node 
 
-Let us now implement the mechanism that will make it possible to use Autograd. We will define a variable structure wich represents a node in the Autograd graph:
+Let us now implement the structure that will make it possible to use Autograd. We will define a representation of  a node in the autograd graph:
 
 ```C
 typedef struct variable {
@@ -232,7 +231,7 @@ typedef struct variable {
 * `void (*backward)(struct variable *)` : A function pointer to the backward operation for this variable. This function will be called during backpropagation to compute gradients.
 * `int ref_count` : A reference counter for memory management, useful for determining when the variable can be safely deallocated.
 
-Now that we have defined the basic node in the graph, we will define operations on variables (function names are self explanatory):
+we will also define operations on variables :
 
 ```C
 variable *add_variable(variable *var1, variable *var2);
@@ -251,100 +250,93 @@ variable *tanh_variable(variable *var);
 variable *matmul_variable(variable *var1, variable *var2);
 ```
 
-Let's took a deeper look into `add_variable` as an example. This function creates a new variable in the computational graph which is the sum of `var1` and `var2`:
+The idea is to use these building blocks to build what ever function we want, and then when we would want to compute the gradient of set function we would simple call on the `backward` function:
 
 ```C
-variable *add_variable(variable *var1, variable *var2) {
-  variable *var = (variable *)malloc(sizeof(variable));
-  var->val = add_ndarray_ndarray(var1->val, var2->val);
-  var->grad = zeros_ndarray(var->val->dim, var->val->shape);
-  var->children = (variable **)malloc(2 * sizeof(variable *));
-  var->children[0] = var1;
-  var->children[1] = var2;
-  var->n_children = 2;
-  var->backward = add_backward;
-  var->ref_count = 0;
-  var1->ref_count++;
-  var2->ref_count++;
 
-  return var;
+void build_topology(variable *var, variable ***topology, int *topology_size,
+                    variable ***visited, int *visited_size) {
+  for (int i = 0; i < *visited_size; ++i) {
+    if ((*visited)[i] == var) {
+      return;
+    }
+  }
+  *visited =
+      (variable **)realloc(*visited, (*visited_size + 1) * sizeof(variable *));
+  (*visited)[*visited_size] = var;
+  (*visited_size)++;
+
+  for (int i = 0; i < var->n_children; ++i) {
+    build_topology(var->children[i], topology, topology_size, visited,
+                   visited_size);
+  }
+  *topology = (variable **)realloc(*topology,
+                                   (*topology_size + 1) * sizeof(variable *));
+  (*topology)[*topology_size] = var;
+  (*topology_size)++;
+}
+
+void backward_variable(variable *root_var) {
+  variable **topology = NULL;
+  int topology_size = 0;
+  variable **visited = NULL;
+  int visited_size = 0;
+  build_topology(root_var, &topology, &topology_size, &visited, &visited_size);
+  for (int i = topology_size - 1; i >= 0; --i) {
+    if (topology[i]->backward) {
+      topology[i]->backward(topology[i]);
+    }
+  }
+  free(topology);
+  free(visited);
 }
 ```
-The `add_variable` function creates a new variable representing the sum of two input variables. It:
 
-1. Allocates memory for the new variable.
-2. Computes its value by adding the input values.
-3. Initializes its gradient to zeros.
-4. Sets up links to its parent variables.
-5. Assigns the appropriate backward function.
-6. Manages reference counting for memory safety.
+In other words, we implement a topological sorting algorithm to ensure that gradients are computed in the correct order, from the output back to the inputs. This allows for automatic differentiation of complex, nested functions by applying the chain rule systematically through the computational graph.
 
-The `add_backward` function is responsible for computing and propagating the gradients back to the input variables (var1 and var2) of the add_variable:
+Let's took a deeper look into `log_variable` as an example:
 
 ```C
-void add_backward(variable *var) {
+variable *log_variable(variable *var) {
+  variable *n_var = (variable *)malloc(sizeof(variable));
+  n_var->val = unary_op_ndarray(var->val, log);
+  n_var->grad = zeros_ndarray(n_var->val->dim, n_var->val->shape);
+  n_var->children = (variable **)malloc(sizeof(variable *));
+  n_var->children[0] = var;
+  n_var->n_children = 1;
+  n_var->backward = log_backward;
+  n_var->ref_count = 0;
+  var->ref_count++;
+
+  return n_var;
+}
+```
+The `log_variable` creates a new variable node that represents the natural logarithm of an input variable. It allocates memory for this new node, computes its value using the logarithm function, initializes its gradient to zero, and sets up the computational graph structure by linking it to its input (child) variable. The function also assigns the appropriate backward function for gradient computation during backpropagation.
+
+If we look at `log_backward`:
+
+```C
+void log_backward(variable *var) {
   ndarray *place_holder;
-  ndarray *reduced_grad;
-  ndarray *temp;
+  ndarray *temp0;
+  ndarray *temp1;
 
   place_holder = var->children[0]->grad;
-  reduced_grad = copy_ndarray(var->grad);
-  for (int i = 0; i < var->children[0]->val->dim; i++) {
-    if (var->children[0]->val->shape[i] != var->grad->shape[i]) {
-      temp = sum_ndarray(reduced_grad, i);
-      free_ndarray(&reduced_grad);
-      reduced_grad = temp;
-    }
-  }
-  var->children[0]->grad =
-      add_ndarray_ndarray(reduced_grad, var->children[0]->grad);
+  temp0 = divide_scalar_ndarray(var->children[0]->val, 1.0);
+  temp1 = multiply_ndarray_ndarray(var->grad, temp0);
+  var->children[0]->grad = add_ndarray_ndarray(var->children[0]->grad, temp1);
+  free_ndarray(&temp0);
+  free_ndarray(&temp1);
   free_ndarray(&place_holder);
-  free_ndarray(&reduced_grad);
-
-  place_holder = var->children[1]->grad;
-  reduced_grad = copy_ndarray(var->grad);
-  for (int i = 0; i < var->children[1]->val->dim; i++) {
-    if (var->children[1]->val->shape[i] != var->grad->shape[i]) {
-      temp = sum_ndarray(reduced_grad, i);
-      free_ndarray(&reduced_grad);
-      reduced_grad = temp;
-    }
-  }
-  var->children[1]->grad =
-      add_ndarray_ndarray(reduced_grad, var->children[1]->grad);
-  free_ndarray(&place_holder);
-  free_ndarray(&reduced_grad);
 }
-```
-Here is a step-by-step explanation of what each part of the function does:
 
-At first we handle the first child, we loop over each dimension of the child's value. If the dimension of the child's value does not match the dimension of the current variable's gradient, the gradient is summed along that dimension using the `sum_ndarray` function. This is necessary to ensure the dimensions align properly for gradient addition:
-
-```C
-place_holder = var->children[0]->grad;
-reduced_grad = copy_ndarray(var->grad);
-for (int i = 0; i < var->children[0]->val->dim; i++) {
-  if (var->children[0]->val->shape[i] != var->grad->shape[i]) {
-    temp = sum_ndarray(reduced_grad, i);
-    free_ndarray(&reduced_grad);
-    reduced_grad = temp;
-  }
-}
 ```
 
-Then the gradient of the first child is updated by adding the adjusted gradient (reduced_grad) to the existing gradient. Memory used for temporary variables is then freed.
-
-```C
-var->children[0]->grad =
-      add_ndarray_ndarray(reduced_grad, var->children[0]->grad);
-free_ndarray(&place_holder);
-free_ndarray(&reduced_grad);
-```
-The function then does the same for the second child.
+The `log_backward` function computes gradients for the natural logarithm operation in automatic differentiation. It applies the chain rule, using the fact that d/\\(\frac{d}{dx}ln(x) = \frac{1}{x}\\). The function multiplies \\(\frac{1}{x}\\) by the output gradient, adds this to the input's existing gradient.
 
 For more info check [variable.c](https://github.com/smdaa/teeny-autograd-c/blob/main/src/variable.c)
 
-### Multilayer perceptron ([multilayer_perceptron.h](https://github.com/smdaa/teeny-autograd-c/blob/main/src/multilayer_perceptron.h))
+### Multilayer perceptron
 
 Now that we have defined the variable structure, we have all we need to implement a Multilayer Perceptron (MLP), also known as a feedforward neural network.
 
@@ -399,4 +391,35 @@ The forward pass is simple: We first multiply the batched data by the weights, t
   <img width=1000 src="mlp-forward-pass.png">
 </p>
 
--->
+```C
+variable *forward_batch_multilayer_perceptron(multilayer_perceptron *mlp,
+                                              variable *x_batch) {
+  variable *output = x_batch;
+  for (int i = 0; i < mlp->n_layers; i++) {
+    output = matmul_variable(output, mlp->weights[i]);
+    output = add_variable(output, mlp->bias[i]);
+    switch (mlp->activations[i]) {
+    case LINEAR:
+      break;
+    case RELU:
+      output = relu_variable(output);
+      break;
+    case SIGMOID:
+      output = sigmoid_variable(output);
+      break;
+    case SOFTMAX:
+      output = softmax_variable(output, 1);
+      break;
+    case TANH:
+      output = tanh_variable(output);
+      break;
+    default:
+      break;
+    }
+  }
+
+  return output;
+}
+```
+
+#### The backward pass
