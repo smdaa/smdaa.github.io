@@ -423,3 +423,271 @@ variable *forward_batch_multilayer_perceptron(multilayer_perceptron *mlp,
 ```
 
 #### The backward pass
+For the training phase we need to define a loss function that we apply at the last layers output and then propagate the gradients backward through the network using the backward pass. This involves computing the gradients of the loss with respect to each weight and bias in the network and then updating these parameters using a gradient-based optimization method, such as stochastic gradient descent (SGD). The backward pass ensures that the network parameters are adjusted in a direction that minimizes the loss, thereby improving the model's performance over successive epochs and batches.
+
+```C
+void train_multilayer_perceptron(multilayer_perceptron *mlp,
+                                 variable **x_batches, variable **y_batches,
+                                 int n_batches, int n_epochs,
+                                 NDARRAY_TYPE learning_rate,
+                                 variable *(*loss_fn)(variable *, variable *)) {
+
+  variable **weights = (variable **)malloc(mlp->n_layers * sizeof(variable *));
+  variable **bias = (variable **)malloc(mlp->n_layers * sizeof(variable *));
+  for (int i = 0; i < n_epochs; i++) {
+    for (int j = 0; j < n_batches; j++) {
+      variable *x_batch = shallow_copy_variable(x_batches[j]);
+      variable *y_batch = shallow_copy_variable(y_batches[j]);
+      variable *y_hat_batch = forward_batch_multilayer_perceptron(mlp, x_batch);
+      variable *loss_batch = loss_fn(y_hat_batch, y_batch);
+
+      zero_grad_multilayer_perceptron(mlp);
+      backward_variable(loss_batch);
+      if (j % 100 == 0) {
+        printf("Epoch %d, batch %d, loss: %f\n", i, j,
+               sum_all_ndarray(loss_batch->val));
+      }
+      update_multilayer_perceptron(mlp, learning_rate);
+
+      for (int k = 0; k < mlp->n_layers; k++) {
+        weights[k] = shallow_copy_variable(mlp->weights[k]);
+        bias[k] = shallow_copy_variable(mlp->bias[k]);
+      }
+
+      free_graph_variable(&loss_batch);
+
+      for (int k = 0; k < mlp->n_layers; k++) {
+        mlp->weights[k] = weights[k];
+        mlp->bias[k] = bias[k];
+      }
+    }
+  }
+  free(weights);
+  free(bias);
+}
+```
+
+The `update_multilayer_perceptron` function adjusts the weights and biases of each layer in the multilayer perceptron using the gradients computed during the backward pass. For each layer, it scales the gradients of the weights and biases by the learning rate.
+
+```C
+void update_multilayer_perceptron(multilayer_perceptron *mlp,
+                                  NDARRAY_TYPE learning_rate) {
+  ndarray *place_holder;
+  ndarray *temp;
+  for (int i = 0; i < mlp->n_layers; i++) {
+    place_holder = mlp->weights[i]->val;
+    temp = multiply_ndarray_scalar(mlp->weights[i]->grad, learning_rate);
+    mlp->weights[i]->val = subtract_ndarray_ndarray(mlp->weights[i]->val, temp);
+    free_ndarray(&place_holder);
+    free_ndarray(&temp);
+
+    place_holder = mlp->bias[i]->val;
+    temp = multiply_ndarray_scalar(mlp->bias[i]->grad, learning_rate);
+    mlp->bias[i]->val = subtract_ndarray_ndarray(mlp->bias[i]->val, temp);
+
+    free_ndarray(&place_holder);
+    free_ndarray(&temp);
+  }
+}
+```
+
+For more info check [multilayer_perceptron.c](https://github.com/smdaa/teeny-autograd-c/blob/main/src/multilayer_perceptron.c)
+
+## Tests
+
+`ndarray`, `variable` and `multilayer_perceptron` structures were tested by comparing the outputs of each function against their counterparts in popular libraries like NumPy and PyTorch, using the libmocka-c framework for unit testing.
+
+For instance, consider the test for the sigmoid operation:
+
+This Python function generates test data for unary operations like the sigmoid function. It creates random input data x, computes the output y using the specified unary operation, and performs a backward pass with a random gradient z. The input, output, and gradients are saved to files for comparison.
+```Python
+def generate_unary_op_test_data(test, output_dir, unary_op, x_shape):
+    dir_path = os.path.join(output_dir, test)
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    x = torch.rand(x_shape, dtype=torch.double, requires_grad=True)
+    y = unary_op(x)
+    z = torch.rand(x_shape, dtype=torch.double, requires_grad=True)
+    y.backward(z)
+    save_ndarray_to_file(os.path.join(dir_path, "x.txt"), x.detach().numpy())
+    save_ndarray_to_file(os.path.join(dir_path, "y.txt"), y.detach().numpy())
+    save_ndarray_to_file(os.path.join(dir_path, "z.txt"), z.detach().numpy())
+    save_ndarray_to_file(os.path.join(dir_path, "x_grad.txt"), x.grad.detach().numpy())
+
+# test_sigmoid_variable
+    n = 10
+    x_shape = (n, n)
+    generate_unary_op_test_data(
+        "test_sigmoid_variable", args.output_dir, torch.sigmoid, x_shape
+    )
+```
+
+
+In the corresponding C test:
+
+```C
+static void test_sigmoid_variable(void **state) {
+  (void)state;
+  char path[256];
+
+  snprintf(path, sizeof(path), "%s/test_sigmoid_variable/x.txt", dataDir);
+  ndarray *x = read_ndarray(path);
+
+  snprintf(path, sizeof(path), "%s/test_sigmoid_variable/y.txt", dataDir);
+  ndarray *y = read_ndarray(path);
+
+  snprintf(path, sizeof(path), "%s/test_sigmoid_variable/z.txt", dataDir);
+  ndarray *z = read_ndarray(path);
+
+  snprintf(path, sizeof(path), "%s/test_sigmoid_variable/x_grad.txt", dataDir);
+  ndarray *x_grad = read_ndarray(path);
+
+  variable *var_x = new_variable(x);
+  variable *var_y_hat = sigmoid_variable(var_x);
+  free_ndarray(&(var_y_hat->grad));
+  var_y_hat->grad = z;
+  backward_variable(var_y_hat);
+
+  assert_true(is_equal_ndarray(var_y_hat->val, y, NDARRAY_TYPE_EPSILON));
+  assert_true(is_equal_ndarray(var_x->grad, x_grad, NDARRAY_TYPE_EPSILON));
+
+  free_ndarray(&x);
+  free_ndarray(&y);
+  free_ndarray(&x_grad);
+
+  free_graph_variable(&var_y_hat);
+}
+```
+
+This C function reads the previously generated test data, performs the sigmoid operation on the ndarray encapsulated in a variable, and runs the backward pass. It then compares the resulting values and gradients to the expected outputs using assertions to ensure they are within a specified tolerance (`NDARRAY_TYPE_EPSILON`). This approach guarantees that the C implementation behaves correctly and consistently with the reference implementations in NumPy and PyTorch.
+
+These unit tests were done for all the function, for more info check [here](https://github.com/smdaa/teeny-autograd-c/tree/main/test)
+
+## Examples
+### MNSIT
+The MNIST dataset, consisting of 70,000 handwritten digit images, is a classic benchmark for machine learning algorithms. It involves classifying digits from 0 to 9, providing an excellent test for our multilayer perceptron implementation. The following example demonstrates the setup, training, and evaluation of the model on the MNIST dataset.
+
+Our model will be a 4 layer neural network with the following dimensions and activation function:
+
+```C
+int n_layers = 4;
+int in_sizes[] = {28 * 28, 64, 32, 16};
+int out_sizes[] = {64, 32, 16, 10};
+activation_function activations[] = {SIGMOID, SIGMOID, SIGMOID, LINEAR};
+```
+
+We will train our model with the following parameters:
+
+```C
+int batch_size = 64;
+int n_epochs = 100;
+NDARRAY_TYPE learning_rate = 0.01;
+```
+
+and since this is a classification problem we need to define the loss function which is the cross entropy loss
+
+```C
+variable *cross_entropy_loss(variable *logits, variable *y) {
+  variable *y_hat_exp = exp_variable(logits);
+  variable *y_hat_sum = sum_variable(y_hat_exp, 1);
+  ndarray *temp = full_ndarray(y_hat_sum->val->dim, y_hat_sum->val->shape,
+                               NDARRAY_TYPE_EPSILON);
+  variable *y_hat_log_sum =
+      log_variable(add_variable(y_hat_sum, new_variable(temp)));
+  free_ndarray(&temp);
+
+  variable *y_hat_softmax = subtract_variable(logits, y_hat_log_sum);
+
+  variable *product = multiply_variable(y, y_hat_softmax);
+  variable *neg_product = negate_variable(product);
+  variable *loss = sum_variable(neg_product, 1);
+
+  free_ndarray(&(loss->grad));
+  loss->grad = ones_ndarray(loss->val->dim, loss->val->shape);
+  return loss;
+}
+```
+
+If we start the training we can see that indeed our model is learning:
+
+```Bash
+Epoch 0, batch 0, loss: 153.069234
+Epoch 0, batch 100, loss: 149.035196
+Epoch 0, batch 200, loss: 146.707832
+Epoch 0, batch 300, loss: 118.086699
+Epoch 0, batch 400, loss: 86.300584
+Epoch 0, batch 500, loss: 66.593495
+Epoch 0, batch 600, loss: 59.607119
+Epoch 1, batch 0, loss: 57.373467
+Epoch 1, batch 100, loss: 53.599278
+Epoch 1, batch 200, loss: 33.338024
+Epoch 1, batch 300, loss: 29.048711
+Epoch 1, batch 400, loss: 38.811830
+Epoch 1, batch 500, loss: 24.286488
+Epoch 1, batch 600, loss: 22.726048
+Epoch 2, batch 0, loss: 28.801350
+Epoch 2, batch 100, loss: 35.327724
+Epoch 2, batch 200, loss: 14.522009
+Epoch 2, batch 300, loss: 14.909454
+Epoch 2, batch 400, loss: 17.792573
+Epoch 2, batch 500, loss: 6.376877
+Epoch 2, batch 600, loss: 13.702117
+Epoch 3, batch 0, loss: 19.182989
+Epoch 3, batch 100, loss: 28.739773
+Epoch 3, batch 200, loss: 11.350802
+Epoch 3, batch 300, loss: 13.056788
+Epoch 3, batch 400, loss: 11.537156
+Epoch 3, batch 500, loss: 4.421002
+Epoch 3, batch 600, loss: 10.465591
+Epoch 4, batch 0, loss: 15.420338
+Epoch 4, batch 100, loss: 23.214068
+Epoch 4, batch 200, loss: 10.336427
+Epoch 4, batch 300, loss: 10.720565
+Epoch 4, batch 400, loss: 8.834916
+Epoch 4, batch 500, loss: 3.295116
+```
+You can check the full example [here](https://github.com/smdaa/teeny-autograd-c/blob/main/examples/mnist_mlp/mnist_mlp.c)
+
+### Paint
+This is more of a fun example, where we only use the forward pass to create a sort of neural network shader, ie we input a vector that represent a coordinates of a pixel in the image and we get back a vector that represents the color.
+
+I landed on the following model:
+
+```C
+int layer_size = 32;
+multilayer_perceptron *mlp = new_multilayer_perceptron(
+      9, batch_size,
+      (int[]){3, layer_size, layer_size, layer_size, layer_size, layer_size,
+              layer_size, layer_size, layer_size},
+      (int[]){layer_size, layer_size, layer_size, layer_size, layer_size,
+              layer_size, layer_size, layer_size, 3},
+      (activation_function[]){TANH, TANH, TANH, TANH, TANH, TANH, TANH, TANH,
+                              SIGMOID},
+      (random_initialisation[]){NORMAL, NORMAL, NORMAL, NORMAL, NORMAL, NORMAL,
+                                NORMAL, NORMAL, NORMAL});
+```
+
+Using the following coordinates as an input:
+
+```C
+ndarray *x = zeros_ndarray(2, (int[]){height * width, 3});
+for (int i = 0; i < height; i++) {
+  for (int j = 0; j < width; j++) {
+    x->data[3 * (i * width + j)] = ((NDARRAY_TYPE)i / height - 0.5) * zoom;
+    x->data[3 * (i * width + j) + 1] = ((NDARRAY_TYPE)j / width - 0.5) * zoom;
+    x->data[3 * (i * width + j) + 2] =
+        sqrt(pow((NDARRAY_TYPE)i / height - 0.5, 2.0) +
+             pow((NDARRAY_TYPE)j / width - 0.5, 2.0)) *
+        zoom;
+  }
+}
+```
+
+Here is an example of what you can get:
+
+<p align="center">
+  <img width=800 src="output1.png">
+  <img width=800 src="output2.png">
+</p>
+
+You can check the full example [here](https://github.com/smdaa/teeny-autograd-c/blob/main/examples/paint/paint.c)
