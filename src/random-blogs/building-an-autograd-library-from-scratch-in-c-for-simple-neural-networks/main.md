@@ -4,7 +4,7 @@
 <!-- toc -->
 
 ## Introduction
-Autograd, is a fundamental component in machine learning frameworks, enabling the automatic computation of gradients that are used for training neural networks. This article will walk you through my journey of writing an Autograd library from scratch (no third party libraries) in pure C.
+Autograd, is a fundamental component in machine learning frameworks, enabling the automatic computation of gradients for training neural networks. This article will walk you through my journey of writing an Autograd library from scratch (no third-party libraries) in pure C.
 
 The source code is hosted in this [repository](https://github.com/smdaa/teeny-autograd-c)
 
@@ -28,14 +28,14 @@ A layer is simply a collection of neurons, and neural networks typically consist
   <img width=300 src="neuron-network.png">
 </p>
 
-Neural networks learn by adjusting the weights \\(w_i\\) and bias \\(b\\) of each neuron to minimize the error in their predictions. This is done via [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent), where the network computes the gradient of the error with respect to each weight and bias, and then updates them in the direction that reduces the error.
+Neural networks learn by adjusting the weights \\(w_i\\) and bias \\(b\\) of each neuron to minimize the error in their predictions. This is done via [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent), where the network computes the gradient of the error for each weight and bias and then updates them in the direction that reduces the error.
 
 ## Derivative Calculation: Symbolic, Numerical and Automatic Differentiation
-Computing gradients is necessary for a neural network to learn, There are 3 fundamental ways to calculate derivatives:
+There are three fundamental ways to calculate derivatives:
 
-* **Symbolic differentiation**: It involves finding the exact derivative of a function using algebraic rules. If the function has a known mathematical expression, we can compute its derivative symbolically. For example for \\(f(x) = x^2\\) the derivative is \\(f'(x) = 2x\\). This method can lead to unwieldy expressions.
+* **Symbolic differentiation**: It involves finding the exact derivative of a function using algebraic rules. If the function has a known mathematical expression, we can compute its derivative symbolically. For example for \\(f(x) = x^2\\) the derivative is \\(f'(x) = 2x\\). This method can lead to unwieldy expressions, especially for functions involving products, quotients, or compositions of multiple functions.
 
-* **Numerical differentiation**: This method uses finite differences to approximate the derivative of a function, a common practice in fields like aerospace engineering and fluid dynamics. \\(f'(x) = \frac{f(x+h) - f(x)}{h}\\). However this method is not suited for neural networks since  there are a large number of derivatives to be performed in a neural network, and with automatic differentiation we can do better in term of performance.
+* **Numerical differentiation**: These methods estimate the derivative by using values of the function at specific points. A common finite difference formula for the first derivative is given by \\(f'(x) = \frac{f(x+h) - f(x)}{h}\\), \\(h\\) is a small step size. However, finite difference methods are not well-suited for neural networks mainly for efficiency reasons: neural networks typically involve a large number of parameters (weights and biases). Calculating the gradient for each parameter using finite differences would require evaluating the function multiple times, leading to a significant computational overhead.
 
 * **Automatic differentiation**: Automatic differentiation works by breaking down a function into basic mathematical components and creating a graph. In this graph, the nodes represent variables and operations, while the edges connect each operation to its input variables.
 
@@ -79,7 +79,7 @@ Using the graph above, we can easily find the answers by tracing paths from \\(d
 Therefore, the interest of automatic differentiation is in its ability to efficiently compute gradients for complex functions. It automates the application of the chain rule, ensuring accurate and fast derivatives.
 
 ## Implementation
-### N-dimensional array ([ndarray.h](https://github.com/smdaa/teeny-autograd-c/blob/main/src/ndarray.h))
+### N-dimensional array
 Before we can implement the Autograd library, we need to create an N-dimensional array (ndarray) library.
 
 The C structure for n-dimensional arrays will include the array's dimension, total size, shape (size of each dimension), and a pointer to the data. The data type is configurable via a macro.
@@ -95,69 +95,121 @@ typedef struct ndarray {
 } ndarray;
 ```
 
-We will need to define some function to create ndarrays (function names are self explanatory):
+Internally, we are representing n-dimensional arrays by a 1D array since it simplifies memory management and access. We can access elements in an n-dimensional array using the shape array. This approach allows us to avoid the need for complex nested loops and makes operations like slicing and reshaping straightforward and performant.
 
+We need functions that operate on the ndarrays, we can distinguish between 3 types of operations:
+
+* **Unary operations**: operations that work on a single ndarray, transforming its elements via element-wise mathematical functions:
 ```C
-ndarray *full_ndarray(int dim, int *shape, NDARRAY_TYPE value);
-ndarray *copy_ndarray(ndarray *arr);
-ndarray *empty_like_ndarray(ndarray *arr);
-ndarray *zeros_ndarray(int dim, int *shape);
-ndarray *ones_ndarray(int dim, int *shape);
-ndarray *eye_ndarray(int size);
-ndarray *random_uniform_ndarray(int dim, int *shape, NDARRAY_TYPE min_val,
-                                NDARRAY_TYPE max_val);
-ndarray *random_normal_ndarray(int dim, int *shape, NDARRAY_TYPE mean,
-                               NDARRAY_TYPE std);
-ndarray *random_truncated_normal_ndarray(int dim, int *shape, NDARRAY_TYPE mean,
-                                         NDARRAY_TYPE std, NDARRAY_TYPE lo,
-                                         NDARRAY_TYPE hi);
-ndarray *read_ndarray(const char *filename);
-```
+ndarray *unary_op_ndarray(ndarray *arr, NDARRAY_TYPE (*op)(NDARRAY_TYPE)) {
+  ndarray *n_arr = (ndarray *)malloc(sizeof(ndarray));
+  n_arr->dim = arr->dim;
+  n_arr->size = arr->size;
+  n_arr->shape = (int *)malloc(arr->dim * sizeof(int));
+  for (int i = 0; i < arr->dim; i++) {
+    n_arr->shape[i] = arr->shape[i];
+  }
+  n_arr->data = (NDARRAY_TYPE *)malloc(arr->size * sizeof(NDARRAY_TYPE));
+  for (int i = 0; i < arr->size; i++) {
+    n_arr->data[i] = op(arr->data[i]);
+  }
 
-We also need functions that operates on the ndarrays, we can distinguish between 3 types of operations:
-
-* Unary operations: operations that work on a single ndarray, transforming its elements via element-wise mathematical functions:
-```C
-ndarray *unary_op_ndarray(ndarray *arr, NDARRAY_TYPE (*op)(NDARRAY_TYPE));
-ndarray *log_ndarray(ndarray *arr);
-ndarray *unary_op_ndarray_scalar(ndarray *arr, NDARRAY_TYPE scalar,
-                                 NDARRAY_TYPE (*op)(NDARRAY_TYPE,
-                                                    NDARRAY_TYPE));
-ndarray *add_ndarray_scalar(ndarray *arr, NDARRAY_TYPE scalar);
-ndarray *subtract_ndarray_scalar(ndarray *arr, NDARRAY_TYPE scalar);
-ndarray *multiply_ndarray_scalar(ndarray *arr, NDARRAY_TYPE scalar);
-ndarray *divide_ndarray_scalar(ndarray *arr, NDARRAY_TYPE scalar);
-ndarray *divide_scalar_ndarray(ndarray *arr, NDARRAY_TYPE scalar);
-ndarray *power_ndarray_scalar(ndarray *arr, NDARRAY_TYPE scalar);
+  return n_arr;
+}
 ```
-* Binary operations: operations that combine two ndarrays element-wise. These include arithmetic operations (addition, subtraction, multiplication, division):
+* **Binary operations**: operations that combine two ndarrays element-wise. These include arithmetic operations (addition, subtraction, multiplication, division). We will also support broadcasting, which allows operations on ndarrays of different but compatible shapes, making it possible to add a vector to a matrix for example which adds the vector to each row of the matrix.
 ```C
 ndarray *binary_op_ndarray(ndarray *arr1, ndarray *arr2,
-                           NDARRAY_TYPE (*op)(NDARRAY_TYPE, NDARRAY_TYPE));
-ndarray *add_ndarray_ndarray(ndarray *arr1, ndarray *arr2);
-ndarray *subtract_ndarray_ndarray(ndarray *arr1, ndarray *arr2);
-ndarray *multiply_ndarray_ndarray(ndarray *arr1, ndarray *arr2);
-ndarray *divide_ndarray_ndarray(ndarray *arr1, ndarray *arr2);
-ndarray *power_ndarray_ndarray(ndarray *arr1, ndarray *arr2);
-ndarray *matmul_ndarray(ndarray *arr1, ndarray *arr2);
+                           NDARRAY_TYPE (*op)(NDARRAY_TYPE, NDARRAY_TYPE)) {
+  if (arr1->dim != arr2->dim) {
+    printf("Incompatible dimensions");
+    return NULL;
+  }
+  for (int i = 0; i < arr1->dim; i++) {
+    if ((arr1->shape[i] != arr2->shape[i]) &&
+        (arr1->shape[i] != 1 && arr2->shape[i] != 1)) {
+      printf("Incompatible dimensions");
+      return NULL;
+    }
+  }
+  int dim = arr1->dim;
+  int *shape = (int *)malloc(dim * sizeof(int));
+  for (int i = 0; i < dim; i++) {
+    int shape1 = arr1->shape[i];
+    int shape2 = arr2->shape[i];
+    shape[i] = shape1 > shape2 ? shape1 : shape2;
+  }
+  ndarray *arr = zeros_ndarray(dim, shape);
+  free(shape);
+  for (int i = 0; i < arr->size; i++) {
+    int idx1 = 0, idx2 = 0, temp = i, stride1 = 1, stride2 = 1;
+    for (int j = arr->dim - 1; j >= 0; j--) {
+      int shape1 = arr1->shape[j];
+      int shape2 = arr2->shape[j];
+      idx1 += (temp % shape1) * stride1;
+      idx2 += (temp % shape2) * stride2;
+      stride1 *= shape1;
+      stride2 *= shape2;
+      temp /= (shape1 > shape2 ? shape1 : shape2);
+    }
+    arr->data[i] =
+        op(arr1->data[idx1 % arr1->size], arr2->data[idx2 % arr2->size]);
+  }
+  return arr;
+}
 ```
-* Reduce operations: operations that collapse one or more dimensions of an ndarray, producing a result with fewer dimensions. Examples include sum, mean, max, and min along specified axes. 
+* **Reduce operations**: operations that collapse one or more dimensions of an ndarray, producing a result with fewer dimensions. Examples include sum, mean, max, and min along specified axes. 
 ```C
+static int get_offset(ndarray *arr, const int *position, int pdim) {
+  unsigned int offset = 0;
+  unsigned int len = arr->size;
+  for (int i = 0; i < pdim; i++) {
+    len /= arr->shape[i];
+    offset += position[i] * len;
+  }
+  return offset;
+}
+
+void reduce_ndarray_helper(ndarray *arr, ndarray *n_arr, int *position,
+                           NDARRAY_TYPE (*op)(NDARRAY_TYPE, NDARRAY_TYPE),
+                           int axis, int dim) {
+  if (dim >= arr->dim) {
+    int rdim = n_arr->dim;
+    int n_position[rdim];
+    for (int i = 0; i < rdim; i++) {
+      n_position[i] = (i == axis) ? 0 : position[i];
+    }
+    int offset_arr = get_offset(arr, position, arr->dim);
+    int offset_narr = get_offset(n_arr, n_position, n_arr->dim);
+    n_arr->data[offset_narr] =
+        (dim == axis) ? arr->data[offset_arr]
+                      : op(n_arr->data[offset_narr], arr->data[offset_arr]);
+
+    return;
+  }
+  for (int i = 0; i < arr->shape[dim]; i++) {
+    position[dim] = i;
+    reduce_ndarray_helper(arr, n_arr, position, op, axis, dim + 1);
+  }
+}
+
 ndarray *reduce_ndarray(ndarray *arr,
                         NDARRAY_TYPE (*op)(NDARRAY_TYPE, NDARRAY_TYPE),
-                        int axis, NDARRAY_TYPE initial_value);
-ndarray *max_ndarray(ndarray *arr, int axis);
-ndarray *min_ndarray(ndarray *arr, int axis);
-ndarray *sum_ndarray(ndarray *arr, int axis);
-NDARRAY_TYPE reduce_all_ndarray(ndarray *arr,
-                                NDARRAY_TYPE (*op)(NDARRAY_TYPE, NDARRAY_TYPE),
-                                NDARRAY_TYPE initial_value);
-NDARRAY_TYPE max_all_ndarray(ndarray *arr);
-NDARRAY_TYPE min_all_ndarray(ndarray *arr);
-NDARRAY_TYPE sum_all_ndarray(ndarray *arr);
+                        int axis, NDARRAY_TYPE initial_value) {
+  int *shape = (int *)malloc(arr->dim * sizeof(int));
+  for (int i = 0; i < arr->dim; i++) {
+    shape[i] = (i == axis) ? 1 : arr->shape[i];
+  }
+  ndarray *n_arr = full_ndarray(arr->dim, shape, initial_value);
+  free(shape);
+  int position[arr->dim];
+  reduce_ndarray_helper(arr, n_arr, position, op, axis, 0);
+
+  return n_arr;
+}
 ```
 For more info check [ndarray.c](https://github.com/smdaa/teeny-autograd-c/blob/main/src/ndarray.c)
-
+<!---
 ### Variable node ([variable.h](https://github.com/smdaa/teeny-autograd-c/blob/main/src/variable.h))
 
 Let us now implement the mechanism that will make it possible to use Autograd. We will define a variable structure wich represents a node in the Autograd graph:
@@ -180,7 +232,7 @@ typedef struct variable {
 * `void (*backward)(struct variable *)` : A function pointer to the backward operation for this variable. This function will be called during backpropagation to compute gradients.
 * `int ref_count` : A reference counter for memory management, useful for determining when the variable can be safely deallocated.
 
-Now that we have defined the basic node in the graph, we will define operations on variables:
+Now that we have defined the basic node in the graph, we will define operations on variables (function names are self explanatory):
 
 ```C
 variable *add_variable(variable *var1, variable *var2);
@@ -218,12 +270,12 @@ variable *add_variable(variable *var1, variable *var2) {
   return var;
 }
 ```
-The add_variable function creates a new variable representing the sum of two input variables. It:
+The `add_variable` function creates a new variable representing the sum of two input variables. It:
 
 1. Allocates memory for the new variable.
 2. Computes its value by adding the input values.
 3. Initializes its gradient to zeros.
-4. Sets up links to its "parent" variables.
+4. Sets up links to its parent variables.
 5. Assigns the appropriate backward function.
 6. Manages reference counting for memory safety.
 
@@ -293,7 +345,8 @@ The function then does the same for the second child.
 For more info check [variable.c](https://github.com/smdaa/teeny-autograd-c/blob/main/src/variable.c)
 
 ### Multilayer perceptron ([multilayer_perceptron.h](https://github.com/smdaa/teeny-autograd-c/blob/main/src/multilayer_perceptron.h))
-Now that we have defined the variable structure, we have all we need to implement a Multilayer Perceptron (MLP), also known as a feedforward neural network. This involves creating layers of interconnected neurons, each represented as a combination of variables with associated values, gradients, and backward functions. By stacking these layers and defining the appropriate activation functions and loss functions, we can construct a neural network capable of learning complex patterns through backpropagation and gradient descent.
+
+Now that we have defined the variable structure, we have all we need to implement a Multilayer Perceptron (MLP), also known as a feedforward neural network.
 
 ```C
 typedef struct multilayer_perceptron {
@@ -338,3 +391,12 @@ typedef enum {
   TRUNCATED_NORMAL,
 } random_initialisation;
 ```
+
+#### The forward pass
+The forward pass is simple: We first multiply the batched data by the weights, then add the bias, and finally apply the activation function for each layer.
+
+<p align="center">
+  <img width=1000 src="mlp-forward-pass.png">
+</p>
+
+-->
