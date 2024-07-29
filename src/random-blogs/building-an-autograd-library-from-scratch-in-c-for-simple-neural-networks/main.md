@@ -688,6 +688,10 @@ Here is an example of what you can get:
 <p align="center">
   <img width=800 src="output1.png">
   <img width=800 src="output2.png">
+  <img width=800 src="output3.png">
 </p>
 
 You can check the full example [here](https://github.com/smdaa/teeny-autograd-c/blob/main/examples/paint/paint.c)
+
+## Conclusion
+This Autograd library in C demonstrates essential neural network operations and automatic differentiation through a simplified, custom implementation. The code includes key components like tensor operations, neural network layers, and forward and backward propagation, all aimed at providing a clear educational example. Note that this implementation is primarily for instructional purposes, as real-world libraries are more complex and optimized for performance.
