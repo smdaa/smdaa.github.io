@@ -4,7 +4,7 @@
 <!-- toc -->
 
 ## Introduction
-Autograd, is a fundamental component in machine learning frameworks, enabling the automatic computation of gradients for training neural networks. This article will walk you through my journey of writing an Autograd library from scratch (no third-party libraries) in pure C.
+Autograd is a fundamental component in machine learning frameworks, enabling the automatic computation of gradients for training neural networks. This article will walk you through my journey of writing an Autograd library from scratch (no third-party libraries) in pure C.
 
 The source code is hosted in this [repository](https://github.com/smdaa/teeny-autograd-c)
 
@@ -35,7 +35,7 @@ There are three fundamental ways to calculate derivatives:
 
 * **Symbolic differentiation**: It involves finding the exact derivative of a function using algebraic rules. If the function has a known mathematical expression, we can compute its derivative symbolically. For example for \\(f(x) = x^2\\) the derivative is \\(f'(x) = 2x\\). This method can lead to unwieldy expressions, especially for functions involving products, quotients, or compositions of multiple functions.
 
-* **Numerical differentiation**: These methods estimate the derivative by using values of the function at specific points. A common finite difference formula for the first derivative is given by \\(f'(x) = \frac{f(x+h) - f(x)}{h}\\), \\(h\\) is a small step size. However, finite difference methods are not well-suited for neural networks mainly for efficiency reasons: neural networks typically involve a large number of parameters (weights and biases). Calculating the gradient for each parameter using finite differences would require evaluating the function multiple times, leading to a significant computational overhead.
+* **Numerical differentiation**: These methods estimate the derivative by using values of the function at specific points. A common finite difference formula for the first derivative is given by \\(f'(x) = \frac{f(x+h) - f(x)}{h}\\), \\(h\\) is a small step size. However, finite difference methods are not well-suited for neural networks, mainly for efficiency reasons: neural networks typically involve a large number of parameters (weights and biases). Calculating the gradient for each parameter using finite differences would require evaluating the function multiple times, leading to a significant computational overhead.
 
 * **Automatic differentiation**: Automatic differentiation works by breaking down a function into basic mathematical components and creating a graph. In this graph, the nodes represent variables and operations, while the edges connect each operation to its input variables.
 
@@ -565,7 +565,7 @@ These unit tests were done for all the function, for more info check [here](http
 
 ## Examples
 ### MNSIT
-The MNIST dataset, consisting of 70,000 handwritten digit images, is a classic benchmark for machine learning algorithms. It involves classifying digits from 0 to 9, providing an excellent test for our multilayer perceptron implementation. The following example demonstrates the setup, training, and evaluation of the model on the MNIST dataset.
+The MNIST dataset, consisting of 70,000 handwritten-digit images, is a classic benchmark for machine learning algorithms. It involves classifying digits from 0 to 9, providing an excellent test for our multilayer perceptron implementation. The following example demonstrates the setup, training, and evaluation of the model on the MNIST dataset.
 
 Our model will be a 4 layer neural network with the following dimensions and activation function:
 
@@ -649,7 +649,7 @@ Epoch 4, batch 500, loss: 3.295116
 You can check the full example [here](https://github.com/smdaa/teeny-autograd-c/blob/main/examples/mnist_mlp/mnist_mlp.c)
 
 ### Paint
-This is more of a fun example, where we only use the forward pass to create a sort of neural network shader, ie we input a vector that represent a coordinates of a pixel in the image and we get back a vector that represents the color.
+This is more of a fun example, where we only use the forward pass to create a sort of neural network shader, i.e., we input a vector that represents the coordinates of a pixel in the image, and we get back a vector that represents the color.
 
 I landed on the following model:
 
