@@ -10,4 +10,4 @@ renderer = ["html"]
 
 [output.html]
 mathjax-support = true
-git-repository-url = "https://github.com/smdaa/smdaa.github.io.git"
+site-url = "https://smdaa.github.io/"
