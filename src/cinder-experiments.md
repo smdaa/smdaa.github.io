@@ -12,3 +12,5 @@ For additional information and access to the library, please visit [Cinder's off
 * [Building a dynamic particle system](./cinder-experiments/building_a_dynamic_particle_system/main.md)
 
 * [Simulating fluid](./cinder-experiments/simulating_fluid/main.md)
+
+* [Rendering Julia set fractals](./cinder-experiments/rendering-julia-set-fractal/main.md)
