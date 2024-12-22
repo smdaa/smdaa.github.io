@@ -46,4 +46,7 @@ export default defineConfig({
   experimental: {
     contentLayer: true,
   },
+  redirects: {
+    '/cinder-experiments/rendering-julia-set-fractal/main.html': '/posts/rendering-julia-set-fractal/'
+  }
 });
