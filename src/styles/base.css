@@ -5,12 +5,12 @@
 @layer base {
   :root,
   html[data-theme="light"] {
-    --color-fill: 246, 238, 225;
-    --color-text-base: 1, 44, 86;
-    --color-accent: 225, 74, 57;
-    --color-card: 217, 209, 195;
-    --color-card-muted: 239, 216, 176;
-    --color-border: 220, 152, 145;
+    --color-fill: 235, 243, 255;        /* light blue background */
+    --color-text-base: 20, 40, 80;      /* deep navy text */
+    --color-accent: 70, 130, 180;       /* steel blue accent */
+    --color-card: 220, 230, 245;        /* pale blue card */
+    --color-card-muted: 200, 215, 235;  /* muted soft blue */
+    --color-border: 180, 200, 230;      /* light cool border */
   }
   html[data-theme="dark"] {
     --color-fill: 33, 39, 55;
@@ -95,16 +95,36 @@
 
   /* ===== Code Blocks & Syntax Highlighting ===== */
   pre:has(code) {
-    @apply border border-skin-line;
+    background-color: rgb(225, 235, 250); /* soft blue background */
+    color: rgb(20, 40, 80); /* dark blue text */
+    border: 1px solid rgb(180, 200, 230); /* matching theme border */
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: 'Fira Code', monospace;
   }
-  code,
+
+  code {
+    background-color: rgba(200, 220, 240, 0.3); /* subtle inline bg */
+    color: rgb(30, 60, 100);
+    padding: 0.2em 0.4em;
+    border-radius: 0.3em;
+    font-family: 'Fira Code', monospace;
+  }
+
   blockquote {
     word-wrap: break-word;
+    border-left: 4px solid rgb(180, 200, 230);
+    padding-left: 1rem;
+    color: rgb(60, 80, 120);
+    background-color: rgb(240, 245, 255);
+    margin: 1em 0;
   }
 
   pre > code {
     white-space: pre;
   }
+
 
   /* Apply Dark Theme (if multi-theme specified) */
   html[data-theme="dark"] pre:has(code),
