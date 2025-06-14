@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Building a keystroke audio classifier | smdaa</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/fonts.css" />
+    
+  </head>
+
+  <body>
+    <nav>
+    <ul class="menu">
+      
+      <li><a href="/">Home</a></li>
+      
+      <li><a href="/post/">Posts</a></li>
+      
+      <li><a href="/tags/">Tags</a></li>
+      
+    </ul>
+    <hr/>
+    </nav>
+
+<div class="article-meta">
+<h1><span class="title">Building a keystroke audio classifier</span></h1>
+
+<h2 class="date">2025/06/10</h2>
+</div>
+
+<main class="numbered-content">
+
+
+
+<h2>Table of contents</h2><nav id="TableOfContents">
+  <ul>
+    <li><a href="#table-of-contents">Table of contents</a></li>
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#data-collection">Data collection</a></li>
+    <li><a href="#a-look-at-the-raw-data">A Look at the raw data</a></li>
+    <li><a href="#mfcc-feature-extraction-with-traditional-classifiers">MFCC feature extraction with traditional classifiers</a></li>
+    <li><a href="#one-dimensional-convolutional-neural-network-on-raw-audio">One-dimensional convolutional neural network on raw audio</a></li>
+    <li><a href="#feedforward-neural-network-on-frequency-spectrum">Feedforward neural network on frequency spectrum</a></li>
+    <li><a href="#conclusion">Conclusion</a></li>
+  </ul>
+</nav>
+<h2 id="introduction">Introduction</h2>
+<p>This short project explores machine learning methods for classifying keystrokes based on audio signal. The goal is to determine which key the user is pressing only by analyzing the sound it makes. First, we will look at the data collection method that captures keyboard sounds with precise cuts. Then, we will test different ML algorithms: MFCC features with traditional classifiers, a 1D CNN on raw audio, and neural networks on FFT spectrograms.</p>
+<h2 id="data-collection">Data collection</h2>
+<p>The keystroke audio collection tool is built with a dual-threaded architecture for precision:</p>
+<ul>
+<li><strong>Audio Thread:</strong> Continuously captures microphone input using PortAudio library. The audio is stored in a circular buffer that maintains a rolling window of the last 5 seconds of audio data.</li>
+<li><strong>Keyboard Thread:</strong> Monitors key presses in real time using the Windows API. When a key is detected, the system notes the timestamp.</li>
+</ul>
+<p>Using the timestamped key press event, a ~400 ms window of audio (100 ms before and 300 ms after the keypress) is extracted from the buffer and saved. Each sample is labeled with the corresponding key.</p>
+<p>This architecture ensures that every keystroke is paired with a clean, time-aligned audio snippet.</p>
+<p>You can find the full source code for the keystroke audio capture tool <a href="https://github.com/smdaa/keystroke-audio-classifier/tree/main/KeySoundCapture">here</a>.</p>
+<h2 id="a-look-at-the-raw-data">A Look at the raw data</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Time Domain</th>
+          <th>Frequency Domain</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><img src="/assets/building-a-keystroke-audio-classifier/audio-time-domain.png" alt=""></td>
+          <td><img src="/assets/building-a-keystroke-audio-classifier/audio-frequency-domain.png" alt=""></td>
+      </tr>
+  </tbody>
+</table>
+<p>In the time domain, the signal shows a sharp initial spike marking the moment of key contact, followed by a secondary smaller peak that likely represents the mechanical rebound.</p>
+<p>The frequency domain shows a dominant low-frequency content below 3 kHz, we see a primary peak near DC and a secondary peak around 1 kHz.</p>
+<h2 id="mfcc-feature-extraction-with-traditional-classifiers">MFCC feature extraction with traditional classifiers</h2>
+<p>The first approach uses Mel-Frequency Cepstral Coefficients (MFCCs) as feature vectors, implementing the mathematical pipeline from scratch:</p>
+<ul>
+<li>
+<p><strong>Signal Windowing:</strong> The audio signal is segmented using overlapping Hamming windows of 25 ms duration with a 10 ms hop size.</p>
+</li>
+<li>
+<p><strong>Spectral Analysis:</strong> The windowed signals undergo FFT transformation producing the power spectrum:</p>
+<p>$$P(k) = |X(k)|^2$$</p>
+<p>where ( X(k) ) is the FFT of the windowed signal.</p>
+</li>
+<li>
+<p><strong>Mel-Scale Transformation:</strong> Linear frequencies are converted to the perceptually-motivated mel-scale using:</p>
+<p>$$m = 2595 \times \log_{10}\left(1 + \frac{f}{700}\right)$$</p>
+<p>The inverse transformation is:</p>
+<p>$$f = 700 \times \left(10^{m/2595} - 1\right)$$</p>
+</li>
+<li>
+<p><strong>Mel Filterbank:</strong> A bank of 26 triangular filters is constructed with mel-spaced center frequencies. Each filter ( H_m(k) ) has the form:</p>
+<p>$$
+H_m(k) = \begin{cases}
+0 &amp; \text{if } k &lt; f(m-1) \
+\frac{k - f(m-1)}{f(m) - f(m-1)} &amp; \text{if } f(m-1) \leq k &lt; f(m) \
+\frac{f(m+1) - k}{f(m+1) - f(m)} &amp; \text{if } f(m) \leq k &lt; f(m+1) \
+0 &amp; \text{if } k \geq f(m+1)
+\end{cases}
+$$</p>
+<p><img src="/assets/building-a-keystroke-audio-classifier/mel-filterbank.png" alt=""></p>
+<p>Mel filter banks mimic human hearing by allocating more filters to lower frequencies where we&rsquo;re more sensitive, and fewer filters to higher frequencies where our discrimination is coarser.</p>
+<p>Instead of using all 512+ FFT bins, mel filter banks compress the spectrum into 26 perceptually relevant channels.</p>
+</li>
+<li>
+<p><strong>Mel Energy Computation:</strong></p>
+<p>$$S(m) = \sum_{k=0}^{N/2} P(k) \cdot H_m(k)$$</p>
+</li>
+<li>
+<p><strong>Logarithmic Compression:</strong></p>
+<p>$$\log S(m) = \log(S(m))$$</p>
+</li>
+<li>
+<p><strong>Discrete Cosine Transform (DCT):</strong></p>
+<p>$$C(n) = \sqrt{\frac{2}{M}} \sum_{m=0}^{M-1} \log S(m) \cos\left(\frac{\pi n (m + 0.5)}{M}\right)$$</p>
+<p>where $M = 26$ is the number of mel filters and $n = 0, 1, &hellip;, 12$ for the first $13$ coefficients.</p>
+</li>
+<li>
+<p><strong>Feature Aggregation:</strong></p>
+<p>$$\bar{C}(n) = \frac{1}{T} \sum_{t=0}^{T-1} C_t(n)$$</p>
+</li>
+</ul>
+<p>These 13-dimensional feature vectors are then fed to traditional classifiers including K-Nearest Neighbors, SVM, Decision Tree, and Random Forest. Evaluation is performed through 5-fold stratified cross-validation with randomized hyperparameter search.</p>
+<p><strong>Cross-validation results:</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Model</th>
+          <th>Train Accuracy</th>
+          <th>Test Accuracy</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>KNN</td>
+          <td>1.0000 ± 0.0000</td>
+          <td>0.8084 ± 0.0051</td>
+      </tr>
+      <tr>
+          <td><strong>SVM</strong></td>
+          <td><strong>0.9510 ± 0.0032</strong></td>
+          <td><strong>0.8588 ± 0.0103</strong></td>
+      </tr>
+      <tr>
+          <td>Decision Tree</td>
+          <td>0.6098 ± 0.0082</td>
+          <td>0.5255 ± 0.0080</td>
+      </tr>
+      <tr>
+          <td>Random Forest</td>
+          <td>0.9980 ± 0.0001</td>
+          <td>0.7913 ± 0.0097</td>
+      </tr>
+  </tbody>
+</table>
+<p>SVM achieves the best test accuracy (~86%) with reasonable training accuracy, indicating good generalization.</p>
+<p>You can find the full source code for this approach <a href="https://github.com/smdaa/keystroke-audio-classifier/blob/main/mfcc-ml.py">here</a>.</p>
+<h2 id="one-dimensional-convolutional-neural-network-on-raw-audio">One-dimensional convolutional neural network on raw audio</h2>
+<p>The second approach uses a 1D Convolutional Neural Network (CNN) to learn features directly from the raw audio waveform.</p>
+<p><img src="/assets/building-a-keystroke-audio-classifier/cnn.png" alt=""></p>
+<p>The architecture consists of two convolutional blocks followed by a fully connected classifier. The first convolutional layer uses a single filter with kernel size 128 to capture broad temporal patterns in the 300 ms audio segments, followed by max pooling with stride 32. The second layer applies 8 filters of size 64 to extract more complex hierarchical features, again followed by max pooling. The resulting feature maps are flattened and fed to a dense output layer with 27 neurons (one per key class).</p>
+<p>Despite its simplicity, with only 3,268 parameters, this lightweight architecture achieves <strong>95% validation accuracy</strong> across all keystroke classes.</p>
+<p>You can find the full source code <a href="https://github.com/smdaa/keystroke-audio-classifier/blob/main/cnn.py">here</a>.</p>
+<h2 id="feedforward-neural-network-on-frequency-spectrum">Feedforward neural network on frequency spectrum</h2>
+<p>In this approach, raw audio signals are transformed into the frequency domain using the Fast Fourier Transform (FFT), converting each 300 ms keystroke sample into a 3,307-dimensional vector representing the spectral magnitude.</p>
+<p><img src="/assets/building-a-keystroke-audio-classifier/fnn.png" alt=""></p>
+<p>These high-dimensional vectors are passed through a fully connected neural network consisting of:</p>
+<ul>
+<li>A dense layer with 32 ReLU-activated neurons,</li>
+<li>A dropout layer (rate 0.5) to reduce overfitting,</li>
+<li>A final output layer with 27 neurons corresponding to each keystroke class.</li>
+</ul>
+<p>Despite its shallow structure and modest parameter count (106,747 trainable weights), this model achieves <strong>96.5% validation accuracy</strong>.</p>
+<p>You can find the full source code <a href="https://github.com/smdaa/keystroke-audio-classifier/blob/main/fft-nn.py">here</a>.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>This project demonstrates that keystroke classification from audio is a highly feasible task using a variety of machine learning techniques. These results highlight the potential security and privacy implications of acoustic side-channel attacks.</p>
+
+</main>
+
+  <footer>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false}
+        ]
+    });
+});
+</script>
+  
+  <hr/>
+  © 2025 Saad Mdaa
+  
+  </footer>
+  </body>
+</html>
+

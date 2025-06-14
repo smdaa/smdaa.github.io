@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Audio-Processing on smdaa</title>
+    <link>http://localhost:1313/tags/audio-processing/</link>
+    <description>Recent content in Audio-Processing on smdaa</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 10 Jun 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/audio-processing/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Building a keystroke audio classifier</title>
+      <link>http://localhost:1313/post/building-a-keystroke-audio-classifier/</link>
+      <pubDate>Tue, 10 Jun 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/post/building-a-keystroke-audio-classifier/</guid>
+      <description>&lt;h2 id=&#34;table-of-contents&#34;&gt;Table of contents&lt;/h2&gt;&#xA;&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;&#xA;&lt;p&gt;This short project explores machine learning methods for classifying keystrokes based on audio signal. The goal is to determine which key the user is pressing only by analyzing the sound it makes. First, we will look at the data collection method that captures keyboard sounds with precise cuts. Then, we will test different ML algorithms: MFCC features with traditional classifiers, a 1D CNN on raw audio, and neural networks on FFT spectrograms.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

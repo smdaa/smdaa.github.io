@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Gemm on smdaa</title>
+    <link>http://localhost:1313/tags/gemm/</link>
+    <description>Recent content in Gemm on smdaa</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sun, 19 May 2024 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/gemm/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Optimizing CPU matrix multiplication</title>
+      <link>http://localhost:1313/post/optimizing-cpu-matrix-multiplication/</link>
+      <pubDate>Sun, 19 May 2024 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/post/optimizing-cpu-matrix-multiplication/</guid>
+      <description>&lt;h2 id=&#34;table-of-contents&#34;&gt;Table of contents&lt;/h2&gt;&#xA;&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;&#xA;&lt;p&gt;Matrix multiplication, denoted as &lt;strong&gt;gemm&lt;/strong&gt; (general matrix multiplication), is a fundamental operation in linear algebra and forms the backbone of numerous scientific computing and machine learning applications.&lt;/p&gt;&#xA;&lt;p&gt;Gemm computes the product of two matrices, with the resulting matrix being the linear combination of the rows of the first matrix and the columns of the second matrix. While conceptually simple, this operation is computationally intensive and often can be a performance bottleneck in many algorithms.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

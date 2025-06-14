@@ -1,0 +1,14 @@
+<video 
+  controls
+  {{- with .Get "width" }} width="{{ . }}"{{ end }}
+  {{- with .Get "height" }} height="{{ . }}"{{ end }}
+  {{- with .Get "autoplay" }} autoplay{{ end }}
+  {{- with .Get "loop" }} loop{{ end }}
+  {{- with .Get "muted" }} muted{{ end }}
+>
+  <source src="{{ .Get "src" }}" type="{{ .Get "type" | default "video/webm" }}">
+  {{- with .Get "fallback" }}
+  <source src="{{ . }}" type="video/mp4">
+  {{- end }}
+  Your browser does not support the video tag.
+</video>

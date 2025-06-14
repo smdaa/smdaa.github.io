@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>C on smdaa</title>
+    <link>http://localhost:1313/tags/c/</link>
+    <description>Recent content in C on smdaa</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 29 Jul 2024 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/c/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Building an autograd library from scratch in C for simple neural networks</title>
+      <link>http://localhost:1313/post/building-an-autograd-library-from-scratch-in-c-for-simple-neural-networks/</link>
+      <pubDate>Mon, 29 Jul 2024 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/post/building-an-autograd-library-from-scratch-in-c-for-simple-neural-networks/</guid>
+      <description>&lt;h2 id=&#34;table-of-contents&#34;&gt;Table of contents&lt;/h2&gt;&#xA;&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;&#xA;&lt;p&gt;Autograd is a fundamental component in machine learning frameworks, enabling the automatic computation of gradients for training neural networks. This article will walk you through my journey of writing an Autograd library from scratch (no third-party libraries) in pure C.&lt;/p&gt;&#xA;&lt;p&gt;&lt;a href=&#34;https://github.com/smdaa/teeny-autograd-c&#34;&gt;View source code on GitHub&lt;/a&gt;&lt;/p&gt;&#xA;&lt;h2 id=&#34;neural-networks-a-brief-overview&#34;&gt;Neural networks: a brief overview&lt;/h2&gt;&#xA;&lt;p&gt;At its core, a neural network consists of neurons organized in layers. Each neuron receives input from the previous layer, processes it using a weighted sum, applies an activation function, and passes the output to the next layer.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Optimizing CPU matrix multiplication</title>
+      <link>http://localhost:1313/post/optimizing-cpu-matrix-multiplication/</link>
+      <pubDate>Sun, 19 May 2024 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/post/optimizing-cpu-matrix-multiplication/</guid>
+      <description>&lt;h2 id=&#34;table-of-contents&#34;&gt;Table of contents&lt;/h2&gt;&#xA;&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;&#xA;&lt;p&gt;Matrix multiplication, denoted as &lt;strong&gt;gemm&lt;/strong&gt; (general matrix multiplication), is a fundamental operation in linear algebra and forms the backbone of numerous scientific computing and machine learning applications.&lt;/p&gt;&#xA;&lt;p&gt;Gemm computes the product of two matrices, with the resulting matrix being the linear combination of the rows of the first matrix and the columns of the second matrix. While conceptually simple, this operation is computationally intensive and often can be a performance bottleneck in many algorithms.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

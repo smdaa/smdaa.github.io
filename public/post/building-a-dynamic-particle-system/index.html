@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Building a dynamic particle system | smdaa</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/fonts.css" />
+    
+  </head>
+
+  <body>
+    <nav>
+    <ul class="menu">
+      
+      <li><a href="/">Home</a></li>
+      
+      <li><a href="/post/">Posts</a></li>
+      
+      <li><a href="/tags/">Tags</a></li>
+      
+    </ul>
+    <hr/>
+    </nav>
+
+<div class="article-meta">
+<h1><span class="title">Building a dynamic particle system</span></h1>
+
+<h2 class="date">2024/01/13</h2>
+</div>
+
+<main class="numbered-content">
+
+
+
+<p><img src="/assets/building-a-dynamic-particle-system/final.webp" alt=""></p>
+<p><a href="https://github.com/smdaa/creative-coding/blob/main/src/example_1/main.cpp">View source code on GitHub</a></p>
+<h2>Table of contents</h2><nav id="TableOfContents">
+  <ul>
+    <li><a href="#table-of-contents">Table of contents</a></li>
+    <li><a href="#creating-a-particle-system">Creating a particle system</a></li>
+    <li><a href="#creating-a-2d-world">Creating a 2D world</a></li>
+    <li><a href="#drawing">Drawing</a>
+      <ul>
+        <li><a href="#example-1">Example 1</a></li>
+        <li><a href="#example-2">Example 2</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+<h2 id="creating-a-particle-system">Creating a particle system</h2>
+<p>Let&rsquo;s start by creating the particle object. A particle has the following properties: a radius $r$, a position $(x, y)$, a velocity $(v_x, v_y)$, and an optional color.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Particle</span> {
+</span></span><span style="display:flex;"><span> <span style="color:#000;font-weight:bold">public</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>  vec2 position;
+</span></span><span style="display:flex;"><span>  vec2 velocity;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> radius;
+</span></span><span style="display:flex;"><span>  Color color;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  Particle(<span style="color:#000;font-weight:bold">const</span> vec2 <span style="color:#000;font-weight:bold">&amp;</span>position, <span style="color:#000;font-weight:bold">const</span> vec2 <span style="color:#000;font-weight:bold">&amp;</span>velocity, <span style="color:#458;font-weight:bold">float</span> radius,
+</span></span><span style="display:flex;"><span>           Color color)
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">:</span> position(position), velocity(velocity), radius(radius), color(color) {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> <span style="color:#900;font-weight:bold">draw</span>() {
+</span></span><span style="display:flex;"><span>    gl<span style="color:#000;font-weight:bold">::</span>color(color);
+</span></span><span style="display:flex;"><span>    gl<span style="color:#000;font-weight:bold">::</span>drawSolidCircle(position, radius);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> <span style="color:#900;font-weight:bold">updateVelocity</span>(vec2 force, <span style="color:#458;font-weight:bold">float</span> dt) { velocity <span style="color:#000;font-weight:bold">+=</span> force <span style="color:#000;font-weight:bold">*</span> dt; }
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> <span style="color:#900;font-weight:bold">updatePosition</span>(<span style="color:#458;font-weight:bold">float</span> dt) { position <span style="color:#000;font-weight:bold">+=</span> velocity <span style="color:#000;font-weight:bold">*</span> dt; }
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Since we want our particle to remain inside the screen, we will use the factor <strong>WALL_BOUNCE_FACTOR</strong> $\in [0, 1]$ to bounce the particle in the other way if it leaves the screen.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Particle</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">public</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>  vec2 position;
+</span></span><span style="display:flex;"><span>  vec2 velocity;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> radius;
+</span></span><span style="display:flex;"><span>  Color color;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  ...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> checkEdgeCollision() {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> (position.x <span style="color:#000;font-weight:bold">-</span> radius <span style="color:#000;font-weight:bold">&lt;</span> <span style="color:#099">0</span>) {
+</span></span><span style="display:flex;"><span>      position.x <span style="color:#000;font-weight:bold">=</span> radius;
+</span></span><span style="display:flex;"><span>      velocity.x <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">-</span>WALL_BOUNCE_FACTOR <span style="color:#000;font-weight:bold">*</span> velocity.x;
+</span></span><span style="display:flex;"><span>    } <span style="color:#000;font-weight:bold">else</span> <span style="color:#900;font-weight:bold">if</span> (position.x <span style="color:#000;font-weight:bold">+</span> radius <span style="color:#000;font-weight:bold">&gt;</span> WINDOW_WIDTH) {
+</span></span><span style="display:flex;"><span>      position.x <span style="color:#000;font-weight:bold">=</span> WINDOW_WIDTH <span style="color:#000;font-weight:bold">-</span> radius;
+</span></span><span style="display:flex;"><span>      velocity.x <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">-</span>WALL_BOUNCE_FACTOR <span style="color:#000;font-weight:bold">*</span> velocity.x;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> (position.y <span style="color:#000;font-weight:bold">-</span> radius <span style="color:#000;font-weight:bold">&lt;</span> <span style="color:#099">0</span>) {
+</span></span><span style="display:flex;"><span>      position.y <span style="color:#000;font-weight:bold">=</span> radius;
+</span></span><span style="display:flex;"><span>      velocity.y <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">-</span>WALL_BOUNCE_FACTOR <span style="color:#000;font-weight:bold">*</span> velocity.y;
+</span></span><span style="display:flex;"><span>    } <span style="color:#000;font-weight:bold">else</span> <span style="color:#900;font-weight:bold">if</span> (position.y <span style="color:#000;font-weight:bold">+</span> radius <span style="color:#000;font-weight:bold">&gt;</span> WINDOW_HEIGHT) {
+</span></span><span style="display:flex;"><span>      position.y <span style="color:#000;font-weight:bold">=</span> WINDOW_HEIGHT <span style="color:#000;font-weight:bold">-</span> radius;
+</span></span><span style="display:flex;"><span>      velocity.y <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">-</span>WALL_BOUNCE_FACTOR <span style="color:#000;font-weight:bold">*</span> velocity.y;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Let&rsquo;s simulate the collision of two particles next. The model is quite basic; it assumes that the two particles have the same mass and that the collision is elastic.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Particle</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">public</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>  vec2 position;
+</span></span><span style="display:flex;"><span>  vec2 velocity;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> radius;
+</span></span><span style="display:flex;"><span>  Color color;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  ...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> checkParticleCollision(Particle <span style="color:#000;font-weight:bold">&amp;</span>other) {
+</span></span><span style="display:flex;"><span>    vec2 relativePosition <span style="color:#000;font-weight:bold">=</span> other.position <span style="color:#000;font-weight:bold">-</span> position;
+</span></span><span style="display:flex;"><span>    vec2 relativeVelocity <span style="color:#000;font-weight:bold">=</span> other.velocity <span style="color:#000;font-weight:bold">-</span> velocity;
+</span></span><span style="display:flex;"><span>    <span style="color:#458;font-weight:bold">float</span> distance <span style="color:#000;font-weight:bold">=</span> glm<span style="color:#000;font-weight:bold">::</span>length(relativePosition);
+</span></span><span style="display:flex;"><span>    <span style="color:#458;font-weight:bold">float</span> combinedRadius <span style="color:#000;font-weight:bold">=</span> radius <span style="color:#000;font-weight:bold">+</span> other.radius;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> (distance <span style="color:#000;font-weight:bold">&lt;</span> combinedRadius) {
+</span></span><span style="display:flex;"><span>      <span style="color:#998;font-style:italic">// Particles are colliding
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>      <span style="color:#458;font-weight:bold">float</span> penetration <span style="color:#000;font-weight:bold">=</span> combinedRadius <span style="color:#000;font-weight:bold">-</span> distance;
+</span></span><span style="display:flex;"><span>      vec2 collisionNormal <span style="color:#000;font-weight:bold">=</span> glm<span style="color:#000;font-weight:bold">::</span>normalize(relativePosition);
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> relativeVelocityAlongNormal <span style="color:#000;font-weight:bold">=</span>
+</span></span><span style="display:flex;"><span>          glm<span style="color:#000;font-weight:bold">::</span>dot(relativeVelocity, collisionNormal);
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">if</span> (relativeVelocityAlongNormal <span style="color:#000;font-weight:bold">&gt;</span> <span style="color:#099">0</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span>;
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">-</span>relativeVelocityAlongNormal;
+</span></span><span style="display:flex;"><span>      vec2 impulse <span style="color:#000;font-weight:bold">=</span> j <span style="color:#000;font-weight:bold">*</span> collisionNormal;
+</span></span><span style="display:flex;"><span>      velocity <span style="color:#000;font-weight:bold">-=</span> impulse;
+</span></span><span style="display:flex;"><span>      other.velocity <span style="color:#000;font-weight:bold">+=</span> impulse;
+</span></span><span style="display:flex;"><span>      position <span style="color:#000;font-weight:bold">-=</span> <span style="color:#099">0.5f</span> <span style="color:#000;font-weight:bold">*</span> penetration <span style="color:#000;font-weight:bold">*</span> collisionNormal;
+</span></span><span style="display:flex;"><span>      other.position <span style="color:#000;font-weight:bold">+=</span> <span style="color:#099">0.5f</span> <span style="color:#000;font-weight:bold">*</span> penetration <span style="color:#000;font-weight:bold">*</span> collisionNormal;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><h2 id="creating-a-2d-world">Creating a 2D world</h2>
+<p>We will have a list of particles in our environment, and we will need to establish an energy field in order to move them.</p>
+<p>Using the <strong>GRID_RESOLUTION</strong> parameter, we will divide our 2D plane into a grid. For each coordinate in the grid $(x_i, y_i)$, we will have an angle pointing in the direction of motion. We&rsquo;ll make the field point in the direction of the mouse to make the experience interactive.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">World</span> {
+</span></span><span style="display:flex;"><span> <span style="color:#000;font-weight:bold">public</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> dt;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> gridNumRows;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> gridNumCols;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> grid;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>Particle<span style="color:#000;font-weight:bold">&gt;</span> particles;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  World() {
+</span></span><span style="display:flex;"><span>    dt <span style="color:#000;font-weight:bold">=</span> DT;
+</span></span><span style="display:flex;"><span>    gridNumRows <span style="color:#000;font-weight:bold">=</span> WINDOW_HEIGHT <span style="color:#000;font-weight:bold">/</span> GRID_RESOLUTION;
+</span></span><span style="display:flex;"><span>    gridNumCols <span style="color:#000;font-weight:bold">=</span> WINDOW_WIDTH <span style="color:#000;font-weight:bold">/</span> GRID_RESOLUTION;
+</span></span><span style="display:flex;"><span>    grid <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span>(
+</span></span><span style="display:flex;"><span>        gridNumRows, std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(gridNumCols, <span style="color:#099">0.0f</span>));
+</span></span><span style="display:flex;"><span>    particles <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>Particle<span style="color:#000;font-weight:bold">&gt;</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> <span style="color:#900;font-weight:bold">addParticle</span>(<span style="color:#000;font-weight:bold">const</span> Particle <span style="color:#000;font-weight:bold">&amp;</span>particle) { particles.push_back(particle); }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> <span style="color:#900;font-weight:bold">updateGrid</span>(<span style="color:#000;font-weight:bold">const</span> vec2 <span style="color:#000;font-weight:bold">&amp;</span>mousePos) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> gridNumRows; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; j <span style="color:#000;font-weight:bold">&lt;</span> gridNumCols; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>        <span style="color:#458;font-weight:bold">float</span> x <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(j) <span style="color:#000;font-weight:bold">*</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(GRID_RESOLUTION);
+</span></span><span style="display:flex;"><span>        <span style="color:#458;font-weight:bold">float</span> y <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(i) <span style="color:#000;font-weight:bold">*</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(GRID_RESOLUTION);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        grid[i][j] <span style="color:#000;font-weight:bold">=</span> atan2(mousePos.y <span style="color:#000;font-weight:bold">-</span> y, mousePos.x <span style="color:#000;font-weight:bold">-</span> x);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><video 
+  controls width="800"
+>
+  <source src="/assets/building-a-dynamic-particle-system/grid.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
+<p>The process of updating the particles is simple: using the factor <strong>FORCE_FEILD_FACTOR</strong>, each particle is moved towards the angle of the closest point in the 2D grid. To add some variation, the force of movement is proportional to the radius. After that, we look for collisions.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">World</span> {
+</span></span><span style="display:flex;"><span> <span style="color:#000;font-weight:bold">public</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> dt;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> gridNumRows;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> gridNumCols;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> grid;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>Particle<span style="color:#000;font-weight:bold">&gt;</span> particles;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  ...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> updateParticles(<span style="color:#458;font-weight:bold">float</span> dt) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> particles.size(); <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">int</span> rowIndex <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">int</span><span style="color:#000;font-weight:bold">&gt;</span>(std<span style="color:#000;font-weight:bold">::</span>min(
+</span></span><span style="display:flex;"><span>          std<span style="color:#000;font-weight:bold">::</span>max(
+</span></span><span style="display:flex;"><span>              particles[i].position.y <span style="color:#000;font-weight:bold">/</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(GRID_RESOLUTION),
+</span></span><span style="display:flex;"><span>              <span style="color:#099">0.0f</span>),
+</span></span><span style="display:flex;"><span>          <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(gridNumRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>)));
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">int</span> columnIndex <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">int</span><span style="color:#000;font-weight:bold">&gt;</span>(std<span style="color:#000;font-weight:bold">::</span>min(
+</span></span><span style="display:flex;"><span>          std<span style="color:#000;font-weight:bold">::</span>max(
+</span></span><span style="display:flex;"><span>              particles[i].position.x <span style="color:#000;font-weight:bold">/</span> <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(GRID_RESOLUTION),
+</span></span><span style="display:flex;"><span>              <span style="color:#099">0.0f</span>),
+</span></span><span style="display:flex;"><span>          <span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(gridNumCols <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>)));
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> gridValue <span style="color:#000;font-weight:bold">=</span> grid[rowIndex][columnIndex];
+</span></span><span style="display:flex;"><span>      vec2 force <span style="color:#000;font-weight:bold">=</span> FORCE_FEILD_FACTOR <span style="color:#000;font-weight:bold">*</span> particles[i].radius <span style="color:#000;font-weight:bold">*</span>
+</span></span><span style="display:flex;"><span>                   vec2(cos(gridValue), sin(gridValue));
+</span></span><span style="display:flex;"><span>      particles[i].updateVelocity(force, dt);
+</span></span><span style="display:flex;"><span>      particles[i].updatePosition(dt);
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#000;font-weight:bold">auto</span> <span style="color:#000;font-weight:bold">&amp;</span><span style="color:#900;font-weight:bold">other</span> : particles) {
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">if</span> (<span style="color:#000;font-weight:bold">&amp;</span>particles[i] <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">&amp;</span>other) {
+</span></span><span style="display:flex;"><span>          other.checkParticleCollision(particles[i]);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      particles[i].checkEdgeCollision();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><video 
+  controls width="800"
+>
+  <source src="/assets/building-a-dynamic-particle-system/particles.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
+<h2 id="drawing">Drawing</h2>
+<p>Instead of just drawing the particles let&rsquo;s create a triangular mesh.
+The mesh is created by extruding the particle positions along the z-axis and connecting them to form triangles.
+The use of alpha blending ensures smooth transitions especially when the number of particles is big.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">CollisionApp</span> <span style="color:#000;font-weight:bold">:</span> <span style="color:#000;font-weight:bold">public</span> App {
+</span></span><span style="display:flex;"><span> <span style="color:#000;font-weight:bold">public</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  ...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">void</span> draw() <span style="color:#000;font-weight:bold">override</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> (world.particles.size() <span style="color:#000;font-weight:bold">&gt;</span> <span style="color:#099">2</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#998;font-style:italic">// Create a TriMesh
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>      TriMesh<span style="color:#000;font-weight:bold">::</span>Format format <span style="color:#000;font-weight:bold">=</span> TriMesh<span style="color:#000;font-weight:bold">::</span>Format().positions(<span style="color:#099">3</span>);
+</span></span><span style="display:flex;"><span>      TriMesh <span style="color:#900;font-weight:bold">mesh</span>(format);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#998;font-style:italic">// Extrude the path
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>      <span style="color:#458;font-weight:bold">float</span> extrusionDepth <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">10.0f</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#000;font-weight:bold">const</span> <span style="color:#000;font-weight:bold">auto</span> <span style="color:#000;font-weight:bold">&amp;</span><span style="color:#900;font-weight:bold">particle</span> : world.particles) {
+</span></span><span style="display:flex;"><span>        vec3 <span style="color:#900;font-weight:bold">position</span>(particle.position, <span style="color:#099">0</span>);
+</span></span><span style="display:flex;"><span>        mesh.appendPosition(position);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        position.z <span style="color:#000;font-weight:bold">+=</span> extrusionDepth;
+</span></span><span style="display:flex;"><span>        mesh.appendPosition(position);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#998;font-style:italic">// Add triangles
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>      <span style="color:#000;font-weight:bold">for</span> (size_t i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> mesh.getNumVertices() <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">4</span>; i <span style="color:#000;font-weight:bold">+=</span> <span style="color:#099">4</span>) {
+</span></span><span style="display:flex;"><span>        mesh.appendTriangle(i, i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">2</span>, i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">4</span>);
+</span></span><span style="display:flex;"><span>        mesh.appendTriangle(i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>, i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">3</span>, i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">5</span>);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#998;font-style:italic">// Draw the mesh
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>      gl<span style="color:#000;font-weight:bold">::</span>color(MESH_COLOR);
+</span></span><span style="display:flex;"><span>      gl<span style="color:#000;font-weight:bold">::</span>enableAlphaBlending();
+</span></span><span style="display:flex;"><span>      gl<span style="color:#000;font-weight:bold">::</span>draw(mesh);
+</span></span><span style="display:flex;"><span>      gl<span style="color:#000;font-weight:bold">::</span>disableAlphaBlending();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span></code></pre></div><h3 id="example-1">Example 1</h3>
+<p>The following is an example of the result with a low count of particles:</p>
+<video 
+  controls width="800"
+>
+  <source src="/assets/building-a-dynamic-particle-system/example1.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
+<h3 id="example-2">Example 2</h3>
+<p>The following is an example of the result with a high count of particles:</p>
+<video 
+  controls width="800"
+>
+  <source src="/assets/building-a-dynamic-particle-system/example2.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
+<p>you can experiment with the different variables and see what you will get:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define WINDOW_WIDTH 1920
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define WINDOW_HEIGHT 1080
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define NPARTICLES 500
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define MAX_RADIUS 5.0f
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define MIN_RADIUS 1.0f
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define MAX_VELOCITY 0.0f
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define MIN_VELOCITY 0.0f
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define WALL_BOUNCE_FACTOR 0.2f
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define FORCE_FEILD_FACTOR 0.5f
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define DT 0.9f
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define GRID_RESOLUTION 5
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define DRAW_GRID false
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define DRAW_PARTICLES false
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define BG_COLOR Color(0.6f, 0.6f, 0.6f)
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#define MESH_COLOR ColorA(0.0f, 0.0f, 0.0f, 0.05f)
+</span></span></span></code></pre></div>
+</main>
+
+  <footer>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false}
+        ]
+    });
+});
+</script>
+  
+  <hr/>
+  © 2025 Saad Mdaa
+  
+  </footer>
+  </body>
+</html>
+

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Simulating fluid | smdaa</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/fonts.css" />
+    
+  </head>
+
+  <body>
+    <nav>
+    <ul class="menu">
+      
+      <li><a href="/">Home</a></li>
+      
+      <li><a href="/post/">Posts</a></li>
+      
+      <li><a href="/tags/">Tags</a></li>
+      
+    </ul>
+    <hr/>
+    </nav>
+
+<div class="article-meta">
+<h1><span class="title">Simulating fluid</span></h1>
+
+<h2 class="date">2024/05/12</h2>
+</div>
+
+<main class="numbered-content">
+
+
+
+<p>The following article is an implementation and a summarization of this paper:</p>
+<p><a href="http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf">Real-Time Fluid Dynamics for Games</a></p>
+<p><a href="https://github.com/smdaa/creative-coding/blob/main/src/example_2/main.cpp">View source code on GitHub</a></p>
+<p><img src="/assets/simulating-fluid/fluid_render.png" alt=""></p>
+<h2>Table of contents</h2><nav id="TableOfContents">
+  <ul>
+    <li><a href="#table-of-contents">Table of contents</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#theoretical-background">Theoretical background</a></li>
+    <li><a href="#implementation">Implementation</a>
+      <ul>
+        <li><a href="#fluid-grid">Fluid grid</a></li>
+        <li><a href="#solving-for-density">Solving for density</a></li>
+        <li><a href="#solving-for-velocity">Solving for velocity</a></li>
+        <li><a href="#drawing-the-fluid">Drawing the fluid</a></li>
+        <li><a href="#getting-user-input">Getting user input</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+<h2 id="results">Results</h2>
+<video 
+  controls width="800"
+>
+  <source src="/assets/simulating-fluid/results.webm" type="video/webm">
+  Your browser does not support the video tag.
+</video>
+<h2 id="theoretical-background">Theoretical background</h2>
+<p>The Navier-Stokes equations serve as a precise mathematical framework for describing fluid flows found in nature, yet solving them can be quite challenging. Analytical solutions are only feasible in very basic scenarios. In practical applications, the priority is to ensure that simulations are both visually convincing and computationally efficient.</p>
+<p>The Navier-Stokes Equations are expressed as follows:</p>
+<p>$$
+\frac{\partial \vec{u}}{\partial t} = - (\vec{u} . \nabla) \vec{u} + \nu \nabla ^ 2 \vec{u} + \vec{f}
+$$</p>
+<p>$$
+\frac{\partial \rho}{\partial t} = -(\vec{u} . \nabla) \rho + \kappa \nabla ^ 2 \rho + s
+$$</p>
+<p>where:</p>
+<ul>
+<li>$\vec{u}$ represents the vector field of the fluid, meaning for each point in space we have a velocity vector.</li>
+<li>$\frac{\partial \vec{u}}{\partial t}$ represents the rate of change of velocity with respect to time. In other words, it describes how the velocity field $\vec{u}$ changes over time at each point in space.</li>
+<li>$- (\vec{u} \cdot \nabla) \vec{u}$ denotes the convective acceleration term. It accounts for how the velocity field &ldquo;advects&rdquo; itself, meaning how the velocity field carries and transports fluid particles along its path.</li>
+</ul>
+<p>To understand why $- (\vec{u} \cdot \nabla) \vec{u}$ is a vector, consider its expansion:</p>
+<p>$$
+- (\vec{u} \cdot \nabla) \vec{u} = - \left(u \frac{\partial}{\partial x} + v \frac{\partial}{\partial y} + w \frac{\partial}{\partial z}\right)\vec{u}
+$$</p>
+<p>Here, $\vec{u} = (u, v, w)$ represents the velocity field in three dimensions.
+When we apply the operator $- \left(u \frac{\partial}{\partial x} + v \frac{\partial}{\partial y} + w \frac{\partial}{\partial z}\right)$ to $\vec{u}$ we are essentially taking the derivative of each component of $\vec{u}$ with respect to its corresponding spatial coordinate ($x$, $y$, or $z$) and then multiplying them by the components of $\vec{u}$.
+Each resulting scalar expression, when taken together, forms a vector. Therefore, $- (\vec{u} \cdot \nabla) \vec{u}$ represents a vector field, as it consists of three scalar components.</p>
+<ul>
+<li>$\nu \nabla ^ 2 \vec{u}$ is the viscous diffusion term. It represents the dissipation of kinetic energy due to viscosity, which tends to smooth out velocity gradients within the fluid.</li>
+<li>$\vec{f}$ represents external forces acting on the fluid.</li>
+<li>$\rho$ is the density field of the fluid, a continuous function which for every point in space tells us the amount of particles present.</li>
+<li>$\frac{\partial \rho}{\partial t}$ represents the rate of change of density with respect to time. It describes how the density of the fluid changes over time at each point in space.</li>
+<li>$-(\vec{u} \cdot \nabla) \rho$ is the convective term for density. It describes how the density field is advected by the velocity field.</li>
+<li>$\kappa \nabla ^ 2 \rho$ is the diffusion term for density. Similar to the viscous diffusion term in the velocity equation, it represents the smoothing out of density gradients within the fluid.</li>
+<li>$s$ represents any source or sink terms contributing to changes in density, such as chemical reactions or heat sources.</li>
+</ul>
+<h2 id="implementation">Implementation</h2>
+<h3 id="fluid-grid">Fluid grid</h3>
+<p>We will describe the fluid&rsquo;s behavior by discretizing a 2D plane. This involves dividing the space into a grid of cells and measuring fluid properties (velocity and density) at the center of each cell.</p>
+<p><img src="/assets/simulating-fluid/fluid_grid.png" alt=""></p>
+<p>We will define a <strong>FluidGrid</strong> class as follows:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">FluidGrid</span> {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">public</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> numRows;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> numColumns;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> densityGrid;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> velocityGridX;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> velocityGridY;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> densitySourceGrid;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> velocitySourceGridX;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> velocitySourceGridY;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">private</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> densityGridOld;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> velocityGridXOld;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> velocityGridYOld;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p><strong>densityGrid</strong>, <strong>velocityGridX</strong>, and <strong>velocityGridY</strong> store the current density and velocity values, while <strong>densitySourceGrid</strong>, <strong>velocitySourceGridX</strong>, and <strong>velocitySourceGridY</strong> indicate the fluid sources, representing the terms $s$ and $\vec{f}$ in the Navier-Stokes equations. Additionally <strong>densityGridOld</strong>, <strong>velocityGridXOld</strong>, and <strong>velocityGridYOld</strong> retain the density and velocity values from the previous calculation.</p>
+<h3 id="solving-for-density">Solving for density</h3>
+<p>Initially, we will outline the solution method for a density field in motion within a constant velocity field that remains unchanged over time.
+Let&rsquo;s consider the density equation:</p>
+<p>$$
+\frac{\partial \rho}{\partial t} = -(\vec{u} . \nabla) \rho + \kappa \nabla ^ 2 \rho + s
+$$</p>
+<h4 id="adding-source">Adding source</h4>
+<p>The first term from the right says that the density increases due to sources, this can be easily implemented with the following function:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>addSource(<span style="color:#458;font-weight:bold">int</span> numRows, <span style="color:#458;font-weight:bold">int</span> numColumns,
+</span></span><span style="display:flex;"><span>                          std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>grid,
+</span></span><span style="display:flex;"><span>                          <span style="color:#000;font-weight:bold">const</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>sourceGrid,
+</span></span><span style="display:flex;"><span>                          <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>      grid[i][j] <span style="color:#000;font-weight:bold">+=</span> sourceGrid[i][j] <span style="color:#000;font-weight:bold">*</span> timeStep;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><code>#pragma omp parallel for</code> is a component of <a href="https://www.openmp.org/wp-content/uploads/OpenMPRefGuide-5.2-Web-2024.pdf">OpenMP</a>, a library facilitating parallel programming in C/C++. It is employed before a for loop to distribute its iterations among multiple threads. Consequently, the loop iterations can be executed concurrently, thereby diminishing the overall execution time.</p>
+<p>Opting to parallelize the outer loop instead of the inner loop is frequently more effective because it minimizes overhead. Each parallel region, initiated by <code>#pragma omp parallel</code>, incurs overhead, such as the creation and destruction of threads.</p>
+<p>We can start building out <strong>stepDensity</strong> method:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>stepDensity(<span style="color:#458;font-weight:bold">int</span> diffusionFactor, <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations,
+</span></span><span style="display:flex;"><span>                            <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, densityGrid, densitySourceGrid, timeStep);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="diffusion">Diffusion</h4>
+<p>Diffusion represents the second term in the equation ($\kappa \nabla ^ 2 \rho$), involving the dispersion of density across the grid cells. We will assume that each grid cell can only exchange density with its four immediate neighbors.</p>
+<p><img src="/assets/simulating-fluid/diffusion_grid.png" alt=""></p>
+<p>Each cell will lose some of its density to its four neighbors, but will also gain some of the density of each of its neighbors:</p>
+<p>$$
+\rho_{t + \Delta t}[i, j] - \rho_{t}[i, j] = a  (\rho_{t}[i-1, j] + \rho_{t}[i+1, j] + \rho_{t}[i, j-1] + \rho_{t}[i, j+1] - 4 \rho_{t}[i, j])
+$$</p>
+<p>Where $a$ is a diffusion factor.</p>
+<p>A stable method given by the paper&rsquo;s author revolves around finding densities which, when diffused backward in time, yields the densities started with, meaning we will solve for $(\rho_{t + \Delta t}[i, j])$ in the equations:</p>
+<p>$$
+\rho_{t}[i, j] = \rho_{t + \Delta t}[i, j] - a (\rho_{t + \Delta t}[i-1, j] + \rho_{t + \Delta t}[i+1, j] + \rho_{t + \Delta t}[i, j-1] + \rho_{t + \Delta t}[i, j+1] - 4 \rho_{t + \Delta t}[i, j])
+$$</p>
+<p>Let&rsquo;s write the system as a matrix product:</p>
+<p>Let $x_t$ and $x_{t +\Delta t}$ be</p>
+<p>$$
+\begin{array}{cc}
+x_t = &amp; \begin{pmatrix}
+\rho_{t}[0, 0] \newline
+\rho_{t}[0, 1] \newline
+\vdots \newline
+\rho_{t}[i, j-1] \newline
+\rho_{t}[i, j] \newline
+\rho_{t}[i, j+1] \newline
+\vdots \newline
+\rho_{t}[N, M-1] \newline
+\rho_{t}[N, M] \newline
+\end{pmatrix}
+\text{ and} &amp;
+x_{t + \Delta t} = &amp; \begin{pmatrix}
+\rho_{t + \Delta t}[0, 0] \newline
+\rho_{t + \Delta t}[0, 1] \newline
+\vdots \newline
+\rho_{t + \Delta t}[i, j-1] \newline
+\rho_{t + \Delta t}[i, j] \newline
+\rho_{t + \Delta t}[i, j+1] \newline
+\vdots \newline
+\rho_{t + \Delta t}[N, M-1] \newline
+\rho_{t + \Delta t}[N, M] \newline
+\end{pmatrix}
+\end{array}
+$$</p>
+<p>We have:</p>
+<p>$$
+x_t = (I - a A) x_{t + \Delta t}
+$$</p>
+<p>where:</p>
+<p>$$
+A_{ij} =
+\begin{cases}
+-4 &amp; \text{if } i = j \newline
+1  &amp; \text{if } i \pm 1 = j \text{ or } i = j \pm M \newline
+0  &amp; \text{otherwise}
+\end{cases}
+$$</p>
+<p>Since $(I - aA)$ is very sparse, we can use the simplest iterative solver: <a href="https://en.wikipedia.org/wiki/Gauss%E2%80%93Seidel_method">Gauss-Seidel relaxation</a>, at iteration $k$:</p>
+<p>$$
+\rho_{t + \Delta t}^{k + 1}[i, j] = \frac{1}{1+4a} (\rho_{t}[i, j] + a (\rho^k_{t + \Delta t}[i-1, j] + \rho^k_{t + \Delta t}[i+1, j] + \rho^k_{t + \Delta t}[i, j-1] + \rho_{t + \Delta t}^k[i, j+1]))
+$$</p>
+<p>Therefore we can define out diffusion function as follows:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>diffuse(<span style="color:#458;font-weight:bold">int</span> numRows, <span style="color:#458;font-weight:bold">int</span> numColumns,
+</span></span><span style="display:flex;"><span>                        std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>outGrid,
+</span></span><span style="display:flex;"><span>                        <span style="color:#000;font-weight:bold">const</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>inGrid,
+</span></span><span style="display:flex;"><span>                        <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations, <span style="color:#458;font-weight:bold">float</span> factor, <span style="color:#458;font-weight:bold">int</span> b,
+</span></span><span style="display:flex;"><span>                        <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> a <span style="color:#000;font-weight:bold">=</span> timeStep <span style="color:#000;font-weight:bold">*</span> factor <span style="color:#000;font-weight:bold">*</span> numRows <span style="color:#000;font-weight:bold">*</span> numColumns;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> denominator <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span> <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">4</span> <span style="color:#000;font-weight:bold">*</span> a;
+</span></span><span style="display:flex;"><span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> k <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; k <span style="color:#000;font-weight:bold">&lt;</span> gaussSeidelIterations; <span style="color:#000;font-weight:bold">++</span>k) {
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>        <span style="color:#458;font-weight:bold">float</span> sum <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0.0f</span>;
+</span></span><span style="display:flex;"><span>        sum <span style="color:#000;font-weight:bold">+=</span> (i <span style="color:#000;font-weight:bold">&gt;</span> <span style="color:#099">0</span>) <span style="color:#000;font-weight:bold">?</span> inGrid[i <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">:</span> <span style="color:#099">0.0f</span>;              <span style="color:#998;font-style:italic">// Left
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>        sum <span style="color:#000;font-weight:bold">+=</span> (i <span style="color:#000;font-weight:bold">&lt;</span> numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">?</span> inGrid[i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">:</span> <span style="color:#099">0.0f</span>;    <span style="color:#998;font-style:italic">// Right
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>        sum <span style="color:#000;font-weight:bold">+=</span> (j <span style="color:#000;font-weight:bold">&gt;</span> <span style="color:#099">0</span>) <span style="color:#000;font-weight:bold">?</span> inGrid[i][j <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">:</span> <span style="color:#099">0.0f</span>;              <span style="color:#998;font-style:italic">// Up
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>        sum <span style="color:#000;font-weight:bold">+=</span> (j <span style="color:#000;font-weight:bold">&lt;</span> numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">?</span> inGrid[i][j <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">:</span> <span style="color:#099">0.0f</span>; <span style="color:#998;font-style:italic">// Down
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>        outGrid[i][j] <span style="color:#000;font-weight:bold">=</span> (inGrid[i][j] <span style="color:#000;font-weight:bold">+</span> a <span style="color:#000;font-weight:bold">*</span> sum) <span style="color:#000;font-weight:bold">/</span> (denominator);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    setBounds(numRows, numColumns, outGrid, b);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The <strong>setBounds</strong> function determines how the field behaves at the screen edges. Parameter <strong>b</strong> specifies which aspect of the field&rsquo;s boundaries we&rsquo;re adjusting (density, velocityX, or velocityY):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>setBounds(<span style="color:#458;font-weight:bold">int</span> numRows, <span style="color:#458;font-weight:bold">int</span> numColumns,
+</span></span><span style="display:flex;"><span>                          std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>grid, <span style="color:#458;font-weight:bold">int</span> b) {
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>    grid[i][<span style="color:#099">0</span>] <span style="color:#000;font-weight:bold">=</span> (b <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">2</span>) <span style="color:#000;font-weight:bold">?</span> <span style="color:#000;font-weight:bold">-</span>grid[i][<span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">:</span> grid[i][<span style="color:#099">1</span>];
+</span></span><span style="display:flex;"><span>    grid[i][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">=</span>
+</span></span><span style="display:flex;"><span>        (b <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">2</span>) <span style="color:#000;font-weight:bold">?</span> <span style="color:#000;font-weight:bold">-</span>grid[i][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>] <span style="color:#000;font-weight:bold">:</span> grid[i][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>];
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>    grid[<span style="color:#099">0</span>][j] <span style="color:#000;font-weight:bold">=</span> (b <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">?</span> <span style="color:#000;font-weight:bold">-</span>grid[<span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">:</span> grid[<span style="color:#099">1</span>][j];
+</span></span><span style="display:flex;"><span>    grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">=</span>
+</span></span><span style="display:flex;"><span>        (b <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">?</span> <span style="color:#000;font-weight:bold">-</span>grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>][j] <span style="color:#000;font-weight:bold">:</span> grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>][j];
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  grid[<span style="color:#099">0</span>][<span style="color:#099">0</span>] <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0.5</span> <span style="color:#000;font-weight:bold">*</span> (grid[<span style="color:#099">1</span>][<span style="color:#099">0</span>] <span style="color:#000;font-weight:bold">+</span> grid[<span style="color:#099">0</span>][<span style="color:#099">1</span>]);
+</span></span><span style="display:flex;"><span>  grid[<span style="color:#099">0</span>][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">=</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#099">0.5</span> <span style="color:#000;font-weight:bold">*</span> (grid[<span style="color:#099">1</span>][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">+</span> grid[<span style="color:#099">0</span>][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>]);
+</span></span><span style="display:flex;"><span>  grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][<span style="color:#099">0</span>] <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0.5</span> <span style="color:#000;font-weight:bold">*</span> (grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][<span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">+</span> grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>][<span style="color:#099">0</span>]);
+</span></span><span style="display:flex;"><span>  grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0.5</span> <span style="color:#000;font-weight:bold">*</span> (grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>] <span style="color:#000;font-weight:bold">+</span>
+</span></span><span style="display:flex;"><span>                                             grid[numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">2</span>][numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>]);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>And we can update the <strong>stepDensity</strong> method:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>stepDensity(<span style="color:#458;font-weight:bold">int</span> diffusionFactor, <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations,
+</span></span><span style="display:flex;"><span>                            <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, densityGrid, densitySourceGrid, timeStep);
+</span></span><span style="display:flex;"><span>  diffuse(numRows, numColumns, densityGridOld, densityGrid,
+</span></span><span style="display:flex;"><span>          gaussSeidelIterations, diffusionFactor, <span style="color:#099">0</span>, timeStep);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="advection">Advection</h4>
+<p>This part makes the density move in the same direction as the velocity (the third term in the equation $-(\vec{u} . \nabla) \rho $).</p>
+<p>The paper suggests thinking of the density as particles. We look for particles that land exactly in the middle of a grid square in one time step. The density these particles have is figured out by a simple mix of the density where the particles started.</p>
+<p>In simpler terms, for each density cell $\rho_{t + \Delta t}[i, j]$ we follow the cell’s center $[i, j]$ backwards through the velocity field. Then $\rho_{t + \Delta t}[i, j]$ will be assigned an interpolated density based on the position where the particles started.</p>
+<p><img src="/assets/simulating-fluid/advection_grid.png" alt=""></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>advect(<span style="color:#458;font-weight:bold">int</span> numRows, <span style="color:#458;font-weight:bold">int</span> numColumns,
+</span></span><span style="display:flex;"><span>                       std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>outGrid,
+</span></span><span style="display:flex;"><span>                       <span style="color:#000;font-weight:bold">const</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>inGrid,
+</span></span><span style="display:flex;"><span>                       <span style="color:#000;font-weight:bold">const</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>velocityGridX,
+</span></span><span style="display:flex;"><span>                       <span style="color:#000;font-weight:bold">const</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>velocityGridY,
+</span></span><span style="display:flex;"><span>                       <span style="color:#458;font-weight:bold">int</span> b, <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">float</span> dtRatio <span style="color:#000;font-weight:bold">=</span> timeStep <span style="color:#000;font-weight:bold">*</span> (std<span style="color:#000;font-weight:bold">::</span>max(numRows, numColumns) <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>);
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> x <span style="color:#000;font-weight:bold">=</span> i <span style="color:#000;font-weight:bold">-</span> dtRatio <span style="color:#000;font-weight:bold">*</span> velocityGridX[i][j];
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> y <span style="color:#000;font-weight:bold">=</span> j <span style="color:#000;font-weight:bold">-</span> dtRatio <span style="color:#000;font-weight:bold">*</span> velocityGridY[i][j];
+</span></span><span style="display:flex;"><span>      x <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>max(<span style="color:#099">0.5f</span>, std<span style="color:#000;font-weight:bold">::</span>min(<span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(numRows) <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1.5f</span>, x));
+</span></span><span style="display:flex;"><span>      y <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>max(<span style="color:#099">0.5f</span>, std<span style="color:#000;font-weight:bold">::</span>min(<span style="color:#000;font-weight:bold">static_cast</span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(numColumns) <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1.5f</span>, y));
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">int</span> x0 <span style="color:#000;font-weight:bold">=</span> (<span style="color:#458;font-weight:bold">int</span>)x;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">int</span> y0 <span style="color:#000;font-weight:bold">=</span> (<span style="color:#458;font-weight:bold">int</span>)y;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">int</span> x1 <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>min(x0 <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>, (<span style="color:#458;font-weight:bold">int</span>)numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">int</span> y1 <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>min(y0 <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>, (<span style="color:#458;font-weight:bold">int</span>)numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> sx1 <span style="color:#000;font-weight:bold">=</span> x <span style="color:#000;font-weight:bold">-</span> x0;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> sx0 <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1.0f</span> <span style="color:#000;font-weight:bold">-</span> sx1;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> sy1 <span style="color:#000;font-weight:bold">=</span> y <span style="color:#000;font-weight:bold">-</span> y0;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> sy0 <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1.0f</span> <span style="color:#000;font-weight:bold">-</span> sy1;
+</span></span><span style="display:flex;"><span>      outGrid[i][j] <span style="color:#000;font-weight:bold">=</span> sx0 <span style="color:#000;font-weight:bold">*</span> (sy0 <span style="color:#000;font-weight:bold">*</span> inGrid[x0][y0] <span style="color:#000;font-weight:bold">+</span> sy1 <span style="color:#000;font-weight:bold">*</span> inGrid[x0][y1]) <span style="color:#000;font-weight:bold">+</span>
+</span></span><span style="display:flex;"><span>                      sx1 <span style="color:#000;font-weight:bold">*</span> (sy0 <span style="color:#000;font-weight:bold">*</span> inGrid[x1][y0] <span style="color:#000;font-weight:bold">+</span> sy1 <span style="color:#000;font-weight:bold">*</span> inGrid[x1][y1]);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  setBounds(numRows, numColumns, outGrid, b);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Now we can finalize the <strong>stepDensity</strong> method:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>stepDensity(<span style="color:#458;font-weight:bold">int</span> diffusionFactor, <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations,
+</span></span><span style="display:flex;"><span>                            <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, densityGrid, densitySourceGrid, timeStep);
+</span></span><span style="display:flex;"><span>  diffuse(numRows, numColumns, densityGridOld, densityGrid,
+</span></span><span style="display:flex;"><span>          gaussSeidelIterations, diffusionFactor, <span style="color:#099">0</span>, timeStep);
+</span></span><span style="display:flex;"><span>  advect(numRows, numColumns, densityGrid, densityGridOld, velocityGridX,
+</span></span><span style="display:flex;"><span>         velocityGridY, <span style="color:#099">0</span>, timeStep);
+</span></span><span style="display:flex;"><span>  densitySourceGrid <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span>(
+</span></span><span style="display:flex;"><span>      numRows, std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(numColumns, <span style="color:#099">0.0f</span>));
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="solving-for-velocity">Solving for velocity</h3>
+<p>Let&rsquo;s consider the velocity equation:</p>
+<p>$$
+\frac{\partial \vec{u}}{\partial t} = - (\vec{u} . \nabla) \vec{u} + \nu \nabla ^ 2 \vec{u} + \vec{f}
+$$</p>
+<h4 id="adding-source-1">Adding source</h4>
+<p>This part is similar to the density equation, therefore we will reuse the same routine <strong>addSource</strong></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>stepVelocity(<span style="color:#458;font-weight:bold">int</span> viscosityFactor, <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations,
+</span></span><span style="display:flex;"><span>                             <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, velocityGridX, velocitySourceGridX, timeStep);
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, velocityGridY, velocitySourceGridY, timeStep);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="diffusion-1">Diffusion</h4>
+<p>This part is similar to the density equation, therefore we will reuse the same routine <strong>diffuse</strong></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>stepVelocity(<span style="color:#458;font-weight:bold">int</span> viscosityFactor, <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations,
+</span></span><span style="display:flex;"><span>                             <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, velocityGridX, velocitySourceGridX, timeStep);
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, velocityGridY, velocitySourceGridY, timeStep);
+</span></span><span style="display:flex;"><span>  diffuse(numRows, numColumns, velocityGridXOld, velocityGridX,
+</span></span><span style="display:flex;"><span>          gaussSeidelIterations, viscosityFactor, <span style="color:#099">1</span>, timeStep);
+</span></span><span style="display:flex;"><span>  diffuse(numRows, numColumns, velocityGridYOld, velocityGridY,
+</span></span><span style="display:flex;"><span>          gaussSeidelIterations, viscosityFactor, <span style="color:#099">2</span>, timeStep);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="projection">Projection</h4>
+<p>The <a href="https://en.wikipedia.org/wiki/Helmholtz_decomposition">Helmholtz decomposition</a> states that any vector field can be resolved into the sum of a curl free vector field and a divergence free vector field, i.e. any vector field $\vec{w}$ can be decomposed into the form:</p>
+<p>$$
+\vec{w} = \vec{v} + \nabla q
+$$</p>
+<p>Where $\nabla \vec{v} = 0$ and $q$ is a scalar field.</p>
+<p>The aim is to use projection to make the velocity a mass conserving, in other words to ensure the incompressibility condition of the fluid flow.</p>
+<p>Initially, we compute the divergence field of our velocity utilizing the average finite difference method. Following this, we employ a linear solver to solve the Poisson equation. Finally, we subtract the gradient of this field, resulting in a velocity field that conserves mass.</p>
+<p>In more details if we have:</p>
+<p>$$
+\vec{w} = \vec{v} + \nabla q
+$$</p>
+<p>Then:</p>
+<p>$$
+\nabla \vec{w} = \nabla ^ 2 q
+$$</p>
+<p>This is a Poisson equation, using the finite difference numerical method to discretize the 2-dimensional Poisson equation:</p>
+<p>$$
+\nabla^2 q_{i,j} = \frac{q_{i+1,j} + q_{i-1,j} + q_{i,j+1} + q_{i,j-1} - 4q_{i,j}}{\Delta x^2}
+$$</p>
+<p>This equation can be solved iteratively until convergence with Gauss-Seidel relaxation, which gives us the scalar field $q$. We can then subtract the gradient of this field from the original vector field $\vec{w}$ to obtain the divergence-free vector field $\vec{v}$, which conserves mass. This completes the projection step.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>project(<span style="color:#458;font-weight:bold">int</span> numRows, <span style="color:#458;font-weight:bold">int</span> numColumns,
+</span></span><span style="display:flex;"><span>                        std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>velocityGridX,
+</span></span><span style="display:flex;"><span>                        std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>velocityGridY,
+</span></span><span style="display:flex;"><span>                        std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>p,
+</span></span><span style="display:flex;"><span>                        std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span> <span style="color:#000;font-weight:bold">&amp;</span>div,
+</span></span><span style="display:flex;"><span>                        <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations) {
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>      div[i][j] <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">-</span><span style="color:#099">0.5</span> <span style="color:#000;font-weight:bold">*</span> (velocityGridX[i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">-</span> velocityGridX[i <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">+</span>
+</span></span><span style="display:flex;"><span>                          velocityGridY[i][j <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">-</span> velocityGridY[i][j <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>]);
+</span></span><span style="display:flex;"><span>      p[i][j] <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0.0</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  setBounds(numRows, numColumns, div, <span style="color:#099">0</span>);
+</span></span><span style="display:flex;"><span>  setBounds(numRows, numColumns, p, <span style="color:#099">0</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> k <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; k <span style="color:#000;font-weight:bold">&lt;</span> gaussSeidelIterations; <span style="color:#000;font-weight:bold">++</span>k) {
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>        p[i][j] <span style="color:#000;font-weight:bold">=</span> (div[i][j] <span style="color:#000;font-weight:bold">+</span> p[i <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">+</span> p[i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">+</span> p[i][j <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">+</span>
+</span></span><span style="display:flex;"><span>                   p[i][j <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>]) <span style="color:#000;font-weight:bold">/</span>
+</span></span><span style="display:flex;"><span>                  <span style="color:#099">4</span>;
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    setBounds(numRows, numColumns, p, <span style="color:#099">0</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#pragma omp parallel for
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">1</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>      velocityGridX[i][j] <span style="color:#000;font-weight:bold">-=</span> <span style="color:#099">0.5</span> <span style="color:#000;font-weight:bold">*</span> (p[i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>][j] <span style="color:#000;font-weight:bold">-</span> p[i <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>][j]);
+</span></span><span style="display:flex;"><span>      velocityGridY[i][j] <span style="color:#000;font-weight:bold">-=</span> <span style="color:#099">0.5</span> <span style="color:#000;font-weight:bold">*</span> (p[i][j <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>] <span style="color:#000;font-weight:bold">-</span> p[i][j <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>]);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  setBounds(numRows, numColumns, velocityGridX, <span style="color:#099">1</span>);
+</span></span><span style="display:flex;"><span>  setBounds(numRows, numColumns, velocityGridY, <span style="color:#099">2</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="advection-1">Advection</h4>
+<p>This part is similar to the density equation, therefore we will reuse the same routine <strong>advect</strong></p>
+<p>Now we can finalize the <strong>stepVelocity</strong> method:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidGrid<span style="color:#000;font-weight:bold">::</span>stepVelocity(<span style="color:#458;font-weight:bold">int</span> viscosityFactor, <span style="color:#458;font-weight:bold">int</span> gaussSeidelIterations,
+</span></span><span style="display:flex;"><span>                             <span style="color:#458;font-weight:bold">float</span> timeStep) {
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, velocityGridX, velocitySourceGridX, timeStep);
+</span></span><span style="display:flex;"><span>  addSource(numRows, numColumns, velocityGridY, velocitySourceGridY, timeStep);
+</span></span><span style="display:flex;"><span>  diffuse(numRows, numColumns, velocityGridXOld, velocityGridX,
+</span></span><span style="display:flex;"><span>          gaussSeidelIterations, viscosityFactor, <span style="color:#099">1</span>, timeStep);
+</span></span><span style="display:flex;"><span>  diffuse(numRows, numColumns, velocityGridYOld, velocityGridY,
+</span></span><span style="display:flex;"><span>          gaussSeidelIterations, viscosityFactor, <span style="color:#099">2</span>, timeStep);
+</span></span><span style="display:flex;"><span>  project(numRows, numColumns, velocityGridXOld, velocityGridYOld,
+</span></span><span style="display:flex;"><span>          velocityGridX, velocityGridY, gaussSeidelIterations);
+</span></span><span style="display:flex;"><span>  advect(numRows, numColumns, velocityGridX, velocityGridXOld, velocityGridXOld,
+</span></span><span style="display:flex;"><span>         velocityGridYOld, <span style="color:#099">1</span>, timeStep);
+</span></span><span style="display:flex;"><span>  advect(numRows, numColumns, velocityGridY, velocityGridYOld, velocityGridXOld,
+</span></span><span style="display:flex;"><span>         velocityGridYOld, <span style="color:#099">2</span>, timeStep);
+</span></span><span style="display:flex;"><span>  project(numRows, numColumns, velocityGridX, velocityGridY, velocityGridXOld,
+</span></span><span style="display:flex;"><span>          velocityGridYOld, gaussSeidelIterations);
+</span></span><span style="display:flex;"><span>  velocitySourceGridX <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span>(
+</span></span><span style="display:flex;"><span>      numRows, std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(numColumns, <span style="color:#099">0.0f</span>));
+</span></span><span style="display:flex;"><span>  velocitySourceGridY <span style="color:#000;font-weight:bold">=</span> std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;&gt;</span>(
+</span></span><span style="display:flex;"><span>      numRows, std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span><span style="color:#458;font-weight:bold">float</span><span style="color:#000;font-weight:bold">&gt;</span>(numColumns, <span style="color:#099">0.0f</span>));
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="drawing-the-fluid">Drawing the fluid</h3>
+<h4 id="naive-method">Naive method</h4>
+<p>The straight forward method would be to draw each cell in the 2D grid individually using <strong>cinder::gl::drawSolidRect</strong>, and use the density for the alpha channel.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">float</span> cellWidth <span style="color:#000;font-weight:bold">=</span> (<span style="color:#458;font-weight:bold">float</span>)getWindowWidth() <span style="color:#000;font-weight:bold">/</span> numColumns;
+</span></span><span style="display:flex;"><span><span style="color:#458;font-weight:bold">float</span> cellHeight <span style="color:#000;font-weight:bold">=</span> (<span style="color:#458;font-weight:bold">float</span>)getWindowHeight() <span style="color:#000;font-weight:bold">/</span> numRows;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>        <span style="color:#458;font-weight:bold">float</span> x <span style="color:#000;font-weight:bold">=</span> j <span style="color:#000;font-weight:bold">*</span> cellWidth;
+</span></span><span style="display:flex;"><span>        <span style="color:#458;font-weight:bold">float</span> y <span style="color:#000;font-weight:bold">=</span> i <span style="color:#000;font-weight:bold">*</span> cellHeight;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#458;font-weight:bold">float</span> density <span style="color:#000;font-weight:bold">=</span> densityGrid[i][j];
+</span></span><span style="display:flex;"><span>        ColorA <span style="color:#900;font-weight:bold">color</span>(<span style="color:#099">1.0f</span>, <span style="color:#099">1.0f</span>, <span style="color:#099">1.0f</span>, density);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        gl<span style="color:#000;font-weight:bold">::</span>color(color);
+</span></span><span style="display:flex;"><span>        gl<span style="color:#000;font-weight:bold">::</span>drawSolidRect(Rectf(x, y, x <span style="color:#000;font-weight:bold">+</span> cellWidth, y <span style="color:#000;font-weight:bold">+</span> cellHeight));
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>However, ths is very slow and inefficient, instead we will use <strong>cinder::gl::VboMesh</strong>.</p>
+<h4 id="vbomesh-method">VboMesh method</h4>
+<p><strong>cinder::gl::VboMesh</strong> is a class in the Cinder library that serves as a container for a Vertex Buffer Object (VBO). A Vertex Buffer Object (VBO) is a feature in OpenGL that provides methods for uploading vertex data, such as position, normal vector, and color, to the video device for non-immediate-mode rendering1.</p>
+<p>We will use <a href="https://en.wikipedia.org/wiki/HSL_and_HSV">HSV</a> (Hue Saturation Value) color coordinate system to have some nice looking cyclic colors:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>ci<span style="color:#000;font-weight:bold">::</span>gl<span style="color:#000;font-weight:bold">::</span>VboMeshRef fluidMesh;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidApp<span style="color:#000;font-weight:bold">::</span>initMesh() {
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>ci<span style="color:#000;font-weight:bold">::</span>vec2<span style="color:#000;font-weight:bold">&gt;</span> positions;
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>ci<span style="color:#000;font-weight:bold">::</span>ColorA<span style="color:#000;font-weight:bold">&gt;</span> colors;
+</span></span><span style="display:flex;"><span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> x0 <span style="color:#000;font-weight:bold">=</span> j <span style="color:#000;font-weight:bold">*</span> gridResolution;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> y0 <span style="color:#000;font-weight:bold">=</span> i <span style="color:#000;font-weight:bold">*</span> gridResolution;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> x1 <span style="color:#000;font-weight:bold">=</span> (j <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">*</span> gridResolution;
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> y1 <span style="color:#000;font-weight:bold">=</span> (i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>) <span style="color:#000;font-weight:bold">*</span> gridResolution;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      positions.push_back(ci<span style="color:#000;font-weight:bold">::</span>vec2(x0, y0));
+</span></span><span style="display:flex;"><span>      positions.push_back(ci<span style="color:#000;font-weight:bold">::</span>vec2(x1, y0));
+</span></span><span style="display:flex;"><span>      positions.push_back(ci<span style="color:#000;font-weight:bold">::</span>vec2(x0, y1));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      positions.push_back(ci<span style="color:#000;font-weight:bold">::</span>vec2(x1, y0));
+</span></span><span style="display:flex;"><span>      positions.push_back(ci<span style="color:#000;font-weight:bold">::</span>vec2(x1, y1));
+</span></span><span style="display:flex;"><span>      positions.push_back(ci<span style="color:#000;font-weight:bold">::</span>vec2(x0, y1));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> k <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; k <span style="color:#000;font-weight:bold">&lt;</span> <span style="color:#099">6</span>; <span style="color:#000;font-weight:bold">++</span>k) {
+</span></span><span style="display:flex;"><span>        colors.push_back(
+</span></span><span style="display:flex;"><span>            ci<span style="color:#000;font-weight:bold">::</span>ColorA(<span style="color:#099">1.0f</span>, <span style="color:#099">1.0f</span>, <span style="color:#099">1.0f</span>, fluidGrid.densityGrid[i][j]));
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  fluidMesh <span style="color:#000;font-weight:bold">=</span> ci<span style="color:#000;font-weight:bold">::</span>gl<span style="color:#000;font-weight:bold">::</span>VboMesh<span style="color:#000;font-weight:bold">::</span>create(positions.size(), GL_TRIANGLES,
+</span></span><span style="display:flex;"><span>                                      {ci<span style="color:#000;font-weight:bold">::</span>gl<span style="color:#000;font-weight:bold">::</span>VboMesh<span style="color:#000;font-weight:bold">::</span>Layout()
+</span></span><span style="display:flex;"><span>                                           .attrib(ci<span style="color:#000;font-weight:bold">::</span>geom<span style="color:#000;font-weight:bold">::</span>POSITION, <span style="color:#099">2</span>)
+</span></span><span style="display:flex;"><span>                                           .attrib(ci<span style="color:#000;font-weight:bold">::</span>geom<span style="color:#000;font-weight:bold">::</span>COLOR, <span style="color:#099">4</span>)});
+</span></span><span style="display:flex;"><span>  fluidMesh<span style="color:#000;font-weight:bold">-&gt;</span>bufferAttrib(ci<span style="color:#000;font-weight:bold">::</span>geom<span style="color:#000;font-weight:bold">::</span>POSITION, positions);
+</span></span><span style="display:flex;"><span>  fluidMesh<span style="color:#000;font-weight:bold">-&gt;</span>bufferAttrib(ci<span style="color:#000;font-weight:bold">::</span>geom<span style="color:#000;font-weight:bold">::</span>COLOR, colors);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidApp<span style="color:#000;font-weight:bold">::</span>updateMesh() {
+</span></span><span style="display:flex;"><span>  std<span style="color:#000;font-weight:bold">::</span>vector<span style="color:#000;font-weight:bold">&lt;</span>ci<span style="color:#000;font-weight:bold">::</span>ColorA<span style="color:#000;font-weight:bold">&gt;</span> colors;
+</span></span><span style="display:flex;"><span>  <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; i <span style="color:#000;font-weight:bold">&lt;</span> numRows; <span style="color:#000;font-weight:bold">++</span>i) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; j <span style="color:#000;font-weight:bold">&lt;</span> numColumns; <span style="color:#000;font-weight:bold">++</span>j) {
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> density <span style="color:#000;font-weight:bold">=</span> fluidGrid.densityGrid[i][j];
+</span></span><span style="display:flex;"><span>      <span style="color:#458;font-weight:bold">float</span> hue <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0.5f</span> <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">0.1f</span> <span style="color:#000;font-weight:bold">*</span> sin(<span style="color:#099">2.0f</span> <span style="color:#000;font-weight:bold">*</span> M_PI <span style="color:#000;font-weight:bold">*</span> density);
+</span></span><span style="display:flex;"><span>      ci<span style="color:#000;font-weight:bold">::</span>ColorA color <span style="color:#000;font-weight:bold">=</span> ci<span style="color:#000;font-weight:bold">::</span>ColorA(ci<span style="color:#000;font-weight:bold">::</span>CM_HSV, hue, <span style="color:#099">1.0f</span>, <span style="color:#099">1.0f</span>, density);
+</span></span><span style="display:flex;"><span>      <span style="color:#000;font-weight:bold">for</span> (<span style="color:#458;font-weight:bold">int</span> k <span style="color:#000;font-weight:bold">=</span> <span style="color:#099">0</span>; k <span style="color:#000;font-weight:bold">&lt;</span> <span style="color:#099">6</span>; <span style="color:#000;font-weight:bold">++</span>k) {
+</span></span><span style="display:flex;"><span>        colors.push_back(color);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  fluidMesh<span style="color:#000;font-weight:bold">-&gt;</span>bufferAttrib(ci<span style="color:#000;font-weight:bold">::</span>geom<span style="color:#000;font-weight:bold">::</span>COLOR, colors);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="getting-user-input">Getting user input</h3>
+<p>In order to make our application interactive, we will utilize the user’s mouse movements as a means to determine density and velocity. The concept is to initiate a click and perform a dragging motion to introduce fluid, with the velocity corresponding to the direction of the drag.</p>
+<p>To do so we will use the <strong>cinder::app::MouseEvent</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidApp<span style="color:#000;font-weight:bold">::</span>setup() {
+</span></span><span style="display:flex;"><span>  getWindow()<span style="color:#000;font-weight:bold">-&gt;</span>getSignalMouseDown().connect(
+</span></span><span style="display:flex;"><span>      [<span style="color:#000;font-weight:bold">this</span>](ci<span style="color:#000;font-weight:bold">::</span>app<span style="color:#000;font-weight:bold">::</span>MouseEvent event) { onMouseDown(event); });
+</span></span><span style="display:flex;"><span>  getWindow()<span style="color:#000;font-weight:bold">-&gt;</span>getSignalMouseDrag().connect(
+</span></span><span style="display:flex;"><span>      [<span style="color:#000;font-weight:bold">this</span>](ci<span style="color:#000;font-weight:bold">::</span>app<span style="color:#000;font-weight:bold">::</span>MouseEvent event) { onMouseDrag(event); });
+</span></span><span style="display:flex;"><span>  getWindow()<span style="color:#000;font-weight:bold">-&gt;</span>getSignalMouseUp().connect(
+</span></span><span style="display:flex;"><span>      [<span style="color:#000;font-weight:bold">this</span>](ci<span style="color:#000;font-weight:bold">::</span>app<span style="color:#000;font-weight:bold">::</span>MouseEvent event) { onMouseUp(event); });
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidApp<span style="color:#000;font-weight:bold">::</span>onMouseDown(ci<span style="color:#000;font-weight:bold">::</span>app<span style="color:#000;font-weight:bold">::</span>MouseEvent event) {
+</span></span><span style="display:flex;"><span>  lastMousePositon <span style="color:#000;font-weight:bold">=</span> event.getPos();
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidApp<span style="color:#000;font-weight:bold">::</span>onMouseDrag(ci<span style="color:#000;font-weight:bold">::</span>app<span style="color:#000;font-weight:bold">::</span>MouseEvent event) {
+</span></span><span style="display:flex;"><span>  ci<span style="color:#000;font-weight:bold">::</span>vec2 currentMousePosition <span style="color:#000;font-weight:bold">=</span> event.getPos();
+</span></span><span style="display:flex;"><span>  ci<span style="color:#000;font-weight:bold">::</span>vec2 dragDirection <span style="color:#000;font-weight:bold">=</span> currentMousePosition <span style="color:#000;font-weight:bold">-</span> lastMousePositon;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> i <span style="color:#000;font-weight:bold">=</span> currentMousePosition.y <span style="color:#000;font-weight:bold">/</span> gridResolution;
+</span></span><span style="display:flex;"><span>  <span style="color:#458;font-weight:bold">int</span> j <span style="color:#000;font-weight:bold">=</span> currentMousePosition.x <span style="color:#000;font-weight:bold">/</span> gridResolution;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#000;font-weight:bold">if</span> (i <span style="color:#000;font-weight:bold">&gt;=</span> <span style="color:#099">0</span> <span style="color:#000;font-weight:bold">&amp;&amp;</span> i <span style="color:#000;font-weight:bold">&lt;</span> numRows <span style="color:#000;font-weight:bold">&amp;&amp;</span> j <span style="color:#000;font-weight:bold">&gt;=</span> <span style="color:#099">0</span> <span style="color:#000;font-weight:bold">&amp;&amp;</span> j <span style="color:#000;font-weight:bold">&lt;</span> numColumns) {
+</span></span><span style="display:flex;"><span>    fluidGrid.densitySourceGrid[i][j] <span style="color:#000;font-weight:bold">+=</span> SOURCE_VALUE;
+</span></span><span style="display:flex;"><span>    fluidGrid.velocitySourceGridX[i][j] <span style="color:#000;font-weight:bold">+=</span> dragDirection.x;
+</span></span><span style="display:flex;"><span>    fluidGrid.velocitySourceGridY[i][j] <span style="color:#000;font-weight:bold">+=</span> dragDirection.y;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#458;font-weight:bold">void</span> FluidApp<span style="color:#000;font-weight:bold">::</span>onMouseUp(ci<span style="color:#000;font-weight:bold">::</span>app<span style="color:#000;font-weight:bold">::</span>MouseEvent event) {
+</span></span><span style="display:flex;"><span>  lastMousePositon <span style="color:#000;font-weight:bold">=</span> ci<span style="color:#000;font-weight:bold">::</span>vec2(<span style="color:#099">0</span>, <span style="color:#099">0</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>That&rsquo;s all folks, thanks for reading.</p>
+
+</main>
+
+  <footer>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false}
+        ]
+    });
+});
+</script>
+  
+  <hr/>
+  © 2025 Saad Mdaa
+  
+  </footer>
+  </body>
+</html>
+

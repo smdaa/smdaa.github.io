@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Deep Learning on smdaa</title>
+    <link>http://localhost:1313/tags/deep-learning/</link>
+    <description>Recent content in Deep Learning on smdaa</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 10 Jun 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/deep-learning/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Building a keystroke audio classifier</title>
+      <link>http://localhost:1313/post/building-a-keystroke-audio-classifier/</link>
+      <pubDate>Tue, 10 Jun 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/post/building-a-keystroke-audio-classifier/</guid>
+      <description>&lt;h2 id=&#34;table-of-contents&#34;&gt;Table of contents&lt;/h2&gt;&#xA;&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;&#xA;&lt;p&gt;This short project explores machine learning methods for classifying keystrokes based on audio signal. The goal is to determine which key the user is pressing only by analyzing the sound it makes. First, we will look at the data collection method that captures keyboard sounds with precise cuts. Then, we will test different ML algorithms: MFCC features with traditional classifiers, a 1D CNN on raw audio, and neural networks on FFT spectrograms.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Building an autograd library from scratch in C for simple neural networks</title>
+      <link>http://localhost:1313/post/building-an-autograd-library-from-scratch-in-c-for-simple-neural-networks/</link>
+      <pubDate>Mon, 29 Jul 2024 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/post/building-an-autograd-library-from-scratch-in-c-for-simple-neural-networks/</guid>
+      <description>&lt;h2 id=&#34;table-of-contents&#34;&gt;Table of contents&lt;/h2&gt;&#xA;&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;&#xA;&lt;p&gt;Autograd is a fundamental component in machine learning frameworks, enabling the automatic computation of gradients for training neural networks. This article will walk you through my journey of writing an Autograd library from scratch (no third-party libraries) in pure C.&lt;/p&gt;&#xA;&lt;p&gt;&lt;a href=&#34;https://github.com/smdaa/teeny-autograd-c&#34;&gt;View source code on GitHub&lt;/a&gt;&lt;/p&gt;&#xA;&lt;h2 id=&#34;neural-networks-a-brief-overview&#34;&gt;Neural networks: a brief overview&lt;/h2&gt;&#xA;&lt;p&gt;At its core, a neural network consists of neurons organized in layers. Each neuron receives input from the previous layer, processes it using a weighted sum, applies an activation function, and passes the output to the next layer.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>
