@@ -29,13 +29,11 @@
 <h2 class="date">2024/05/19</h2>
 </div>
 
-<main class="numbered-content">
-
-
-
-<h2>Table of contents</h2><nav id="TableOfContents">
+<main>
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <nav id="TableOfContents">
   <ul>
-    <li><a href="#table-of-contents">Table of contents</a></li>
     <li><a href="#introduction">Introduction</a></li>
     <li><a href="#blasopenblas">BLAS/OpenBLAS</a></li>
     <li><a href="#testing-environment">Testing environment</a></li>
@@ -50,6 +48,7 @@
     <li><a href="#conclusion">Conclusion</a></li>
   </ul>
 </nav>
+</div>
 <h2 id="introduction">Introduction</h2>
 <p>Matrix multiplication, denoted as <strong>gemm</strong> (general matrix multiplication), is a fundamental operation in linear algebra and forms the backbone of numerous scientific computing and machine learning applications.</p>
 <p>Gemm computes the product of two matrices, with the resulting matrix being the linear combination of the rows of the first matrix and the columns of the second matrix. While conceptually simple, this operation is computationally intensive and often can be a performance bottleneck in many algorithms.</p>
@@ -273,7 +272,7 @@ $$</p>
 <p>So far we went from 141.5/1072.1 ms of the naive gemm_iter0 to 4.9/25.9 of the gemm_iter3, about a <strong>29x/41x improvement</strong>. However, OpenBLAS is still beating us with runtimes of 1.6/8.8 ms for the same matrix sizes.</p>
 <h2 id="conclusion">Conclusion</h2>
 <p>This post highlights that even with small, incremental changes, significant performance gains can be achieved. Simple optimizations, such as better loop ordering, efficient use of memory, and leveraging cache locality, can dramatically reduce computation times.</p>
-<p>Despite these substantial gains, our optimized implementation still lags behind highly optimized libraries like OpenBLAS.  This underscores the sophistication and efficiency of professionally developed libraries that leverage advanced optimizations, hardware-specific enhancements, and extensive fine-tuning.</p>
+<p>Despite these substantial gains, our optimized implementation still lags behind highly optimized libraries like OpenBLAS. This underscores the sophistication and efficiency of professionally developed libraries that leverage advanced optimizations, hardware-specific enhancements, and extensive fine-tuning.</p>
 
 </main>
 

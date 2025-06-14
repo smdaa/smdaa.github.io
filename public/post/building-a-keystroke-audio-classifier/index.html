@@ -29,13 +29,11 @@
 <h2 class="date">2025/06/10</h2>
 </div>
 
-<main class="numbered-content">
-
-
-
-<h2>Table of contents</h2><nav id="TableOfContents">
+<main>
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <nav id="TableOfContents">
   <ul>
-    <li><a href="#table-of-contents">Table of contents</a></li>
     <li><a href="#introduction">Introduction</a></li>
     <li><a href="#data-collection">Data collection</a></li>
     <li><a href="#a-look-at-the-raw-data">A Look at the raw data</a></li>
@@ -45,6 +43,7 @@
     <li><a href="#conclusion">Conclusion</a></li>
   </ul>
 </nav>
+</div>
 <h2 id="introduction">Introduction</h2>
 <p>This short project explores machine learning methods for classifying keystrokes based on audio signal. The goal is to determine which key the user is pressing only by analyzing the sound it makes. First, we will look at the data collection method that captures keyboard sounds with precise cuts. Then, we will test different ML algorithms: MFCC features with traditional classifiers, a 1D CNN on raw audio, and neural networks on FFT spectrograms.</p>
 <h2 id="data-collection">Data collection</h2>
@@ -94,9 +93,9 @@
 <p><strong>Mel Filterbank:</strong> A bank of 26 triangular filters is constructed with mel-spaced center frequencies. Each filter ( H_m(k) ) has the form:</p>
 <p>$$
 H_m(k) = \begin{cases}
-0 &amp; \text{if } k &lt; f(m-1) \
-\frac{k - f(m-1)}{f(m) - f(m-1)} &amp; \text{if } f(m-1) \leq k &lt; f(m) \
-\frac{f(m+1) - k}{f(m+1) - f(m)} &amp; \text{if } f(m) \leq k &lt; f(m+1) \
+0 &amp; \text{if } k &lt; f(m-1) \newline
+\frac{k - f(m-1)}{f(m) - f(m-1)} &amp; \text{if } f(m-1) \leq k &lt; f(m) \newline
+\frac{f(m+1) - k}{f(m+1) - f(m)} &amp; \text{if } f(m) \leq k &lt; f(m+1) \newline
 0 &amp; \text{if } k \geq f(m+1)
 \end{cases}
 $$</p>

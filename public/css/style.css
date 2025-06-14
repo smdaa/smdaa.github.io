@@ -49,34 +49,3 @@ table {
 table thead th { border-bottom: 1px solid #ddd; }
 th, td { padding: 5px; }
 thead, tfoot, tr:nth-child(even) { background: #eee; }
-
-#TableOfContents {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
-  padding: 1rem;
-  margin: 1rem 0;
-}
-
-#TableOfContents ul {
-  list-style: none;
-  padding-left: 1rem;
-  margin: 0;
-}
-
-#TableOfContents > ul {
-  padding-left: 0;
-}
-
-#TableOfContents li {
-  margin: 0.25rem 0;
-}
-
-#TableOfContents a {
-  text-decoration: none;
-  color: #0066cc;
-}
-
-#TableOfContents a:hover {
-  text-decoration: underline;
-}

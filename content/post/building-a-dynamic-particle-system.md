@@ -9,7 +9,7 @@ aliases = ["/cinder-experiments/building_a_dynamic_particle_system/main.html"]
 
 [View source code on GitHub](https://github.com/smdaa/creative-coding/blob/main/src/example_1/main.cpp)
 
-## Table of contents
+{{< toc >}}
 
 ## Creating a particle system
 

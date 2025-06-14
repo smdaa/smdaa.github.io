@@ -5,7 +5,7 @@ tags = ["cpp", "machine-learning", "deep learning", "audio-processing"]
 aliases = ["/posts/building-a-keystroke-audio-classifier/"]
 +++
 
-## Table of contents
+{{< toc >}}
 
 ## Introduction
 
@@ -120,7 +120,6 @@ You can find the full source code [here](https://github.com/smdaa/keystroke-audi
 In this approach, raw audio signals are transformed into the frequency domain using the Fast Fourier Transform (FFT), converting each 300 ms keystroke sample into a 3,307-dimensional vector representing the spectral magnitude.
 
 ![](/assets/building-a-keystroke-audio-classifier/fnn.png)
-
 
 These high-dimensional vectors are passed through a fully connected neural network consisting of:
 

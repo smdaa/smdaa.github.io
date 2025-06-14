@@ -13,7 +13,7 @@ In this article, we’ll explore how to efficiently render the Julia set fractal
 
 ![](/assets/rendering-julia-set-fractal/render.png)
 
-## Table of contents
+{{< toc >}}
 
 ## Why we will avoid the GPU
 

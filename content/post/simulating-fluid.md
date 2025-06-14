@@ -13,7 +13,7 @@ The following article is an implementation and a summarization of this paper:
 
 ![](/assets/simulating-fluid/fluid_render.png)
 
-## Table of contents
+{{< toc >}}
 
 ## Results
 

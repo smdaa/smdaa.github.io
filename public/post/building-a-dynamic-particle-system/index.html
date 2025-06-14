@@ -29,15 +29,13 @@
 <h2 class="date">2024/01/13</h2>
 </div>
 
-<main class="numbered-content">
-
-
-
+<main>
 <p><img src="/assets/building-a-dynamic-particle-system/final.webp" alt=""></p>
 <p><a href="https://github.com/smdaa/creative-coding/blob/main/src/example_1/main.cpp">View source code on GitHub</a></p>
-<h2>Table of contents</h2><nav id="TableOfContents">
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <nav id="TableOfContents">
   <ul>
-    <li><a href="#table-of-contents">Table of contents</a></li>
     <li><a href="#creating-a-particle-system">Creating a particle system</a></li>
     <li><a href="#creating-a-2d-world">Creating a 2D world</a></li>
     <li><a href="#drawing">Drawing</a>
@@ -48,6 +46,7 @@
     </li>
   </ul>
 </nav>
+</div>
 <h2 id="creating-a-particle-system">Creating a particle system</h2>
 <p>Let&rsquo;s start by creating the particle object. A particle has the following properties: a radius $r$, a position $(x, y)$, a velocity $(v_x, v_y)$, and an optional color.</p>
 <div class="highlight"><pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Particle</span> {

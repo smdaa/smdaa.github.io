@@ -5,8 +5,7 @@ tags = ["c", "gemm"]
 aliases = ["/random-blogs/optimizing-cpu-matrix-multiplication/main.html"]
 +++
 
-
-## Table of contents
+{{< toc >}}
 
 ## Introduction
 
@@ -143,11 +142,11 @@ void gemm_iter2(int m, int n, int k, double *A, double *B, double *C) {
 }
 ```
 
-* `__m256d A_val = _mm256_set1_pd(A[i * k + p])`: This line broadcasts the value of `A[i * k + p]` to all 4 elements of the `A_val` vector.
-* `__m256d B_vec = _mm256_loadu_pd(&B[p * n + j])`: This line loads 4 consecutive elements of matrix `B` into the `B_vec` vector, starting from the memory address `&B[p * n + j]`.
-* `__m256d C_vec = _mm256_loadu_pd(&C[i * n + j])`: This line loads 4 consecutive elements of matrix `C` into the `C_vec` vector, starting from the memory address `&C[i * n + j]`.
-* `C_vec = _mm256_fmadd_pd(A_val, B_vec, C_vec)`: This line performs a fused multiply-add operation, where each element of `A_val` is multiplied by the corresponding element of `B_vec`, and the results are added to the corresponding elements of `C_vec`.
-* `_mm256_storeu_pd(&C[i * n + j], C_vec)`: This line stores the 4 elements of the `C_vec` vector back to memory, starting from the address `&C[i * n + j]`.
+- `__m256d A_val = _mm256_set1_pd(A[i * k + p])`: This line broadcasts the value of `A[i * k + p]` to all 4 elements of the `A_val` vector.
+- `__m256d B_vec = _mm256_loadu_pd(&B[p * n + j])`: This line loads 4 consecutive elements of matrix `B` into the `B_vec` vector, starting from the memory address `&B[p * n + j]`.
+- `__m256d C_vec = _mm256_loadu_pd(&C[i * n + j])`: This line loads 4 consecutive elements of matrix `C` into the `C_vec` vector, starting from the memory address `&C[i * n + j]`.
+- `C_vec = _mm256_fmadd_pd(A_val, B_vec, C_vec)`: This line performs a fused multiply-add operation, where each element of `A_val` is multiplied by the corresponding element of `B_vec`, and the results are added to the corresponding elements of `C_vec`.
+- `_mm256_storeu_pd(&C[i * n + j], C_vec)`: This line stores the 4 elements of the `C_vec` vector back to memory, starting from the address `&C[i * n + j]`.
 
 For more information about Intrinsics please refer to the [Intel® Intrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#).
 
@@ -155,8 +154,8 @@ Let's evaluate the performance improvement:
 
 | Matrix shape | openblas_gemm (ms) | gemm_iter1 (ms) | gemm_iter2 (ms) |
 | ------------ | ------------------ | --------------- | --------------- |
-| 544 x 544    | 1.6                | 57.9            |  16.6           |
-| 1056 x 1056  | 8.8                | 439.2           |  139.7          |
+| 544 x 544    | 1.6                | 57.9            | 16.6            |
+| 1056 x 1056  | 8.8                | 439.2           | 139.7           |
 
 We can indeed notice a **4x** improvement.
 
@@ -191,8 +190,8 @@ The outer loop `(for (int i = 0; i < m; i++))` is parallelized using OpenMP's `#
 
 | Matrix shape | openblas_gemm (ms) | gemm_iter2 (ms) | gemm_iter3 (ms) |
 | ------------ | ------------------ | --------------- | --------------- |
-| 544 x 544    |  1.3               |   20.4          |    4.9          |
-| 1056 x 1056  |  11.0              |   147.7         |    25.9         |
+| 544 x 544    | 1.3                | 20.4            | 4.9             |
+| 1056 x 1056  | 11.0               | 147.7           | 25.9            |
 
 So far we went from 141.5/1072.1 ms of the naive gemm_iter0 to 4.9/25.9 of the gemm_iter3, about a **29x/41x improvement**. However, OpenBLAS is still beating us with runtimes of 1.6/8.8 ms for the same matrix sizes.
 
@@ -200,4 +199,4 @@ So far we went from 141.5/1072.1 ms of the naive gemm_iter0 to 4.9/25.9 of the g
 
 This post highlights that even with small, incremental changes, significant performance gains can be achieved. Simple optimizations, such as better loop ordering, efficient use of memory, and leveraging cache locality, can dramatically reduce computation times.
 
-Despite these substantial gains, our optimized implementation still lags behind highly optimized libraries like OpenBLAS.  This underscores the sophistication and efficiency of professionally developed libraries that leverage advanced optimizations, hardware-specific enhancements, and extensive fine-tuning.
+Despite these substantial gains, our optimized implementation still lags behind highly optimized libraries like OpenBLAS. This underscores the sophistication and efficiency of professionally developed libraries that leverage advanced optimizations, hardware-specific enhancements, and extensive fine-tuning.

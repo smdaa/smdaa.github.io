@@ -5,7 +5,7 @@ tags = ["c", "autograd", "deep learning"]
 aliases = ["/random-blogs/building-an-autograd-library-from-scratch-in-c-for-simple-neural-networks/main.html"]
 +++
 
-## Table of contents
+{{< toc >}}
 
 ## Introduction
 
