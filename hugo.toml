@@ -2,6 +2,7 @@ baseURL = 'https://smdaa.github.io/'
 languageCode = 'en-us'
 title = "smdaa"
 theme = "xmin"
+enableRobotsTXT = true
 
 [params]
   description = "A minimalist Hugo site"
