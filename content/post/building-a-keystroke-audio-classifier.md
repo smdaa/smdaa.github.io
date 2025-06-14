@@ -57,9 +57,9 @@ The first approach uses Mel-Frequency Cepstral Coefficients (MFCCs) as feature v
 
   $$
   H_m(k) = \begin{cases}
-  0 & \text{if } k < f(m-1) \\
-  \frac{k - f(m-1)}{f(m) - f(m-1)} & \text{if } f(m-1) \leq k < f(m) \\
-  \frac{f(m+1) - k}{f(m+1) - f(m)} & \text{if } f(m) \leq k < f(m+1) \\
+  0 & \text{if } k < f(m-1) \newline
+  \frac{k - f(m-1)}{f(m) - f(m-1)} & \text{if } f(m-1) \leq k < f(m) \newline
+  \frac{f(m+1) - k}{f(m+1) - f(m)} & \text{if } f(m) \leq k < f(m+1) \newline
   0 & \text{if } k \geq f(m+1)
   \end{cases}
   $$
