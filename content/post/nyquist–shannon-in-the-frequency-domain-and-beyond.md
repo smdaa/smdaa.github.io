@@ -12,15 +12,15 @@ The Nyquist–Shannon theorem is often the first concept introduced in signal pr
 
 In this post, we will look at an intuition behind this theorem by focusing on what happens in the frequency domain. 
 
-We will also look at cases where the Nyquist–Shannon criteria can be beaten.
+We will also look at cases where the Nyquist–Shannon criterion can be beaten.
 
-The animations below were by made with the library [Manim](https://www.manim.community/) and can be found [here](https://github.com/smdaa/dsp-manifesto/tree/main/nyquist-shannon).
+The animations below were made with the library [Manim](https://www.manim.community/) and can be found [here](https://github.com/smdaa/dsp-manifesto/tree/main/nyquist-shannon).
 
 ## Aliasing  
 
 Aliasing is what happens when we sample too slowly. When the sampling rate falls below the Nyquist rate ($2f$), the sampled points can no longer distinguish the original signal from lower-frequency imposters. 
 
-In the animation below, we start with a 3 Hz signal and gradually reduce the sampling rate. At $5Hz$ below the Nyquist rate of $6Hz$ the samples now trace out a 2 Hz wave instead. The original 3 Hz signal has been "aliased" to a completely different frequency. 
+In the animation below, we start with a $3$ Hz signal and gradually reduce the sampling rate. At $5$ Hz below the Nyquist rate of $6$ Hz, the samples now trace out a $2$ Hz wave instead. The original $3$ Hz signal has been "aliased" to a completely different frequency. 
 
 {{< video src="/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/aliasing_animation.mp4" type="video/mp4" >}}
 
@@ -107,7 +107,7 @@ In the first example, we will use a 1D signal that is sparse in the DCT/Fourier 
 
 You can find the code [here](https://github.com/smdaa/dsp-manifesto/blob/main/nyquist-shannon/1d_compressive_sampling_demo.py)
 
-In nature signals are rarely this sparse, but they are quite sparse nonetheless.
+In nature, signals are rarely this sparse, but they are quite sparse nonetheless.
 
 We first undersample the signal on a regular grid (uniform downsampling). As expected from the Nyquist–Shannon rule, once the effective sampling rate drops too low, the sampled points no longer correspond to the original waveform.
 
@@ -123,7 +123,7 @@ The $L_1$ minimization is solved with [CVXPY](https://www.cvxpy.org/).
 
 ![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/1d_compressive_sampling_demo_3.png)
 
-seeing a full waveform recover from only a few samples can feel almost like magic.
+Seeing a full waveform recover from only a few samples can feel almost like magic.
 
 ### Example: Compressive sensing on a 2D image
 
@@ -135,7 +135,7 @@ As shown below, the original image and its representation in the 2D DCT domain r
 
 ![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_1.png)
 
-In fact, we can zero out about $98$% of the DCT coefficients (keeping only the largest $2$%) and still recover an image that looks very close to the original.
+In fact, we can zero out about $98$ % of the DCT coefficients (keeping only the largest $2$ %) and still recover an image that looks very close to the original.
 
 ![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_2.png)
 
@@ -147,10 +147,10 @@ The implementation here uses [PyLops](https://pylops.readthedocs.io/). While the
 
 ![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_3.png)
 
-Even with only $20$% of the pixels measured, the sparse $L_1$ reconstruction recovers most of the image structure remarkably well.
+Even with only $20$ % of the pixels measured, the sparse $L_1$ reconstruction recovers most of the image structure remarkably well.
 
 This approach still has clear limitations, though: sparsity in the DCT domain does not mean we can sample at the same extreme rate.  
-So even if keeping only $2$% of the DCT coefficients preserves the image, we should not expect equally good reconstructions from only $2$% of randomly sampled pixels.
+So even if keeping only $2$ % of the DCT coefficients preserves the image, we should not expect equally good reconstructions from only $2$ % of randomly sampled pixels.
 
 ## Conclusion
 
