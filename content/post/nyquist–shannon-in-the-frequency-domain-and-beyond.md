@@ -135,7 +135,7 @@ As shown below, the original image and its representation in the 2D DCT domain r
 
 ![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_1.png)
 
-In fact, we can zero out about 98% of the DCT coefficients (keeping only the largest 2%) and still recover an image that looks very close to the original.
+In fact, we can zero out about $98$% of the DCT coefficients (keeping only the largest $2$%) and still recover an image that looks very close to the original.
 
 ![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_2.png)
 
@@ -147,7 +147,7 @@ The implementation here uses [PyLops](https://pylops.readthedocs.io/). While the
 
 ![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_3.png)
 
-Even with only $20\%$ of the pixels measured, the sparse $L_1$ reconstruction recovers most of the image structure remarkably well.
+Even with only $20$% of the pixels measured, the sparse $L_1$ reconstruction recovers most of the image structure remarkably well.
 
 This approach still has clear limitations, though: sparsity in the DCT domain does not mean we can sample at the same extreme rate.  
 So even if keeping only $2$% of the DCT coefficients preserves the image, we should not expect equally good reconstructions from only $2$% of randomly sampled pixels.
