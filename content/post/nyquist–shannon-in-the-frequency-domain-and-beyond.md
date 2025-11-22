@@ -1,5 +1,5 @@
 +++
-title = "Nyquist–Shannon in the Frequency Domain, and Beyond"
+title = "Nyquist–Shannon in the frequency domain, and beyond"
 date = 2025-11-22
 tags = ["sampling", "aliasing", "compressive-sensing", "sparsity"]
 +++
