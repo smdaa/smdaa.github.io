@@ -1,7 +1,7 @@
 +++
-title = "Nyquist–Shannon in frequency domain and beyond the limit"
-date = 2025-11-20
-tags = ["todo"]
+title = "Nyquist–Shannon in the Frequency Domain, and Beyond"
+date = 2025-11-22
+tags = ["sampling", "aliasing", "compressive-sensing", "sparsity"]
 +++
 
 {{< toc >}}
@@ -22,7 +22,7 @@ Aliasing is what happens when we sample too slowly. When the sampling rate falls
 
 In the animation below, we start with a 3 Hz signal and gradually reduce the sampling rate. At $5Hz$ below the Nyquist rate of $6Hz$ the samples now trace out a 2 Hz wave instead. The original 3 Hz signal has been "aliased" to a completely different frequency. 
 
-{{< video src="/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/aliasing_animation.mp4" type="video/mp4" >}}
+{{< video src="/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/aliasing_animation.mp4" type="video/mp4" >}}
 
 ## From Time-Domain Sampling to Frequency-Domain Replicas
 
@@ -59,7 +59,7 @@ The result indicates that sampling a signal in the time domain leads to periodic
 
 In other words, sampling creates copies of the original spectrum at multiples of $f_s$. When these copies overlap, aliasing occurs. The animation below shows this: as $f_s$ decreases, the replicas move closer until they collide at $f_s < 2 \times bandwidth$.
 
-{{< video src="/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/sampling_frequency_visualisation.mp4" type="video/mp4" >}}
+{{< video src="/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/sampling_frequency_visualization.mp4" type="video/mp4" >}}
 
 ## Compressive sensing
 
@@ -95,7 +95,7 @@ As a reminder, the norms are defined as:
 
 To illustrate we can look at a $2D$ example where the equation $a^\top x = b$ represents a straight line: all points $(x_1, x_2)$ that satisfy the linear relation $a_1 x_1 + a_2 x_2 = b$. Geometrically, the set of feasible solutions form a line.
 
-![](/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/2d-example.png)
+![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d-example.png)
 
 Norm minimization then selects one particular point on this line:  
 - The $L_2$ solution is the point on the line closest to the origin, i.e. the minimum Euclidean norm solution.  
@@ -111,18 +111,51 @@ In nature signals are rarely this sparse, but they are quite sparse nonetheless.
 
 We first undersample the signal on a regular grid (uniform downsampling). As expected from the Nyquist–Shannon rule, once the effective sampling rate drops too low, the sampled points no longer correspond to the original waveform.
 
-![](/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/1d_compressive_sampling_demo_1.png)
+![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/1d_compressive_sampling_demo_1.png)
 
 Next, we take the same number of samples at random time locations and reconstruct using an $L_2$ (minimum-norm) solution. This satisfies the measurements, but because $L_2$ does not encourage sparsity, it distributes energy across many frequencies and produces a not so accurate reconstruction.
 
-![](/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/1d_compressive_sampling_demo_2.png)
+![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/1d_compressive_sampling_demo_2.png)
 
 Finally, we reconstruct from the same random samples using $L_1$ minimization. Here the sparsity condition is explicit: the recovered spectrum concentrates on the true components, and the time-domain signal is reconstructed accurately from the undersampled measurements.
 
-![](/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/1d_compressive_sampling_demo_3.png)
+The $L_1$ minimization is solved with [CVXPY](https://www.cvxpy.org/).
 
-seeing a full waveform recover from so few samples can feel almost like magic.
+![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/1d_compressive_sampling_demo_3.png)
 
+seeing a full waveform recover from only a few samples can feel almost like magic.
 
+### Example: Compressive sensing on a 2D image
 
+Images are a natural domain for compressive sensing, because they tend to be sparse (or at least highly compressible) in a suitable basis. 
 
+You can find the code [here](https://github.com/smdaa/dsp-manifesto/blob/main/nyquist-shannon/2d_compressive_sampling_demo.py)
+
+As shown below, the original image and its representation in the 2D DCT domain reveal that most of the energy is concentrated in only a small set of coefficients.  
+
+![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_1.png)
+
+In fact, we can zero out about 98% of the DCT coefficients (keeping only the largest 2%) and still recover an image that looks very close to the original.
+
+![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_2.png)
+
+This is exactly the kind of setting where compressive sensing makes sense: if the image is going to be heavily compressed in a sparse domain anyway, why capture every pixel in the first place?  
+Instead, we can measure only a subset of pixels and let the sparsity prior fill in the rest, recovering the full image from far fewer samples.
+
+We reconstruct using FISTA, a fast gradient-based $L_1$ solver: each iteration takes a gradient step to fit the measured pixels, then applies soft-thresholding to keep the DCT coefficients sparse.  
+The implementation here uses [PyLops](https://pylops.readthedocs.io/). While the same convex problem could be written in CVXPY, for an image of this size it would be far too slow and memory-hungry, so a specialized first-order method like FISTA is the practical choice.
+
+![](/assets/nyquist–shannon-in-the-frequency-domain-and-beyond/2d_compressive_sampling_demo_3.png)
+
+Even with only $20\%$ of the pixels measured, the sparse $L_1$ reconstruction recovers most of the image structure remarkably well.
+
+This approach still has clear limitations, though: sparsity in the DCT domain does not mean we can sample at the same extreme rate.  
+So even if keeping only $2$% of the DCT coefficients preserves the image, we should not expect equally good reconstructions from only $2$% of randomly sampled pixels.
+
+## Conclusion
+
+Nyquist–Shannon remains the right lens for dense, wideband signals: to avoid aliasing you must sample fast enough to keep spectral replicas separated.  
+But when a signal is sparse or compressible in a known basis, compressive sensing shows that we can trade samples for computation, recovering the full signal from far fewer measurements by explicitly enforcing sparsity.
+
+The 1D and 2D examples illustrate both the promise and the limits: random sampling plus $L_1$ recovery can beat uniform undersampling, yet the achievable rate depends on how sparse the signal really is and how incoherent the measurements are with the sparsifying basis.  
+In short, we don’t “break” Nyquist for free — we beat it by adding structure, and paying with optimization.
