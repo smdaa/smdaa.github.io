@@ -36,7 +36,7 @@ $$
 S(f) = \int_{-\infty}^{\infty} \left(\sum_{n=-\infty}^{\infty} \delta(t - nT_s)\right) e^{-i 2\pi f t}\ dt
 $$
 $$
-S(f) = \sum_{n=-\infty}^{\infty} \int_{-\infty}^{\infty} \delta(t - nT_s)\, e^{-i 2\pi f t}\ dt
+S(f) = \sum_{n=-\infty}^{\infty} \int_{-\infty}^{\infty} \delta(t - nT_s)\ e^{-i 2\pi f t}\ dt
 $$
 Using the shifting property of the dirac:
 $$
