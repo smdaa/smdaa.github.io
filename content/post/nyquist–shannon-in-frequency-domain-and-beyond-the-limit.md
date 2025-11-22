@@ -49,11 +49,11 @@ $$
 Using the Poisson summation identity:
 $$
 \sum_{n=-\infty}^{\infty} e^{-i 2\pi f n T_s}
-= \frac{1}{T_s} \sum_{k=-\infty}^{\infty} \delta\!\left(f - k f_s\right)
+= \frac{1}{T_s} \sum_{k=-\infty}^{\infty} \delta\left(f - k f_s\right)
 $$
 Therefore:
 $$
-S(f) = \frac{1}{T_s} \sum_{k=-\infty}^{\infty} \delta\!\left(f - k f_s\right)
+S(f) = \frac{1}{T_s} \sum_{k=-\infty}^{\infty} \delta\left(f - k f_s\right)
 $$
 The result indicates that sampling a signal in the time domain leads to periodic repetitions of its spectrum in the frequency domain, since multiplying in time corresponds to convolution in frequency.
 
@@ -100,4 +100,29 @@ To illustrate we can look at a $2D$ example where the equation $a^\top x = b$ re
 Norm minimization then selects one particular point on this line:  
 - The $L_2$ solution is the point on the line closest to the origin, i.e. the minimum Euclidean norm solution.  
 - The $L_1$ solution is the point on the line with the smallest sum of absolute values, which promotes sparsity.  
+
+### Example: Compressive sensing on a 1D signal
+
+In the first example, we will use a 1D signal that is sparse in the DCT/Fourier domain: a sum of two sinusoids.
+
+You can find the code [here](https://github.com/smdaa/dsp-manifesto/blob/main/nyquist-shannon/1d_compressive_sampling_demo.py)
+
+In nature signals are rarely this sparse, but they are quite sparse nonetheless.
+
+We first undersample the signal on a regular grid (uniform downsampling). As expected from the Nyquist–Shannon rule, once the effective sampling rate drops too low, the sampled points no longer correspond to the original waveform.
+
+![](/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/1d_compressive_sampling_demo_1.png)
+
+Next, we take the same number of samples at random time locations and reconstruct using an $L_2$ (minimum-norm) solution. This satisfies the measurements, but because $L_2$ does not encourage sparsity, it distributes energy across many frequencies and produces a not so accurate reconstruction.
+
+![](/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/1d_compressive_sampling_demo_2.png)
+
+Finally, we reconstruct from the same random samples using $L_1$ minimization. Here the sparsity condition is explicit: the recovered spectrum concentrates on the true components, and the time-domain signal is reconstructed accurately from the undersampled measurements.
+
+![](/assets/nyquist–shannon-in-frequency-domain-and-beyond-the-limit/1d_compressive_sampling_demo_3.png)
+
+seeing a full waveform recover from so few samples can feel almost like magic.
+
+
+
 
