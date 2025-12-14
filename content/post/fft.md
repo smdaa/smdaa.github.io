@@ -6,9 +6,11 @@ tags = ["todo"]
 
 {{< toc >}}
 
-
 ## Introduction
-A fundamental idea in signal processing is that signals can be represented using oscillatory building blocks: Periodic signals can be written as sums of sinusoids (via Fourier series), while general finite-energy signals can be described as an integral superposition of complex exponentials (via the Fourier transform).
+
+A fundamental idea in signal processing is that signals can be represented using oscillations.
+
+Periodic signals can be written as sums of sinusoids via Fourier series, while general nonperiodic signals can be described as an continuous superposition of complex exponentials via the Fourier transform.
 
 In practice (where we work with sampled, finite-length data) this becomes the discrete Fourier transform (DFT), which expresses any finite sequence (audio, image, or any timeseries data) as a weighted sum of discrete frequencies.
 
@@ -17,6 +19,7 @@ Seen through a linear-algebra lens, this is simply a change of basis.
 TODO: write hook
 
 ## The math behind the fourier transform
+
 The fourier transfom for a signal $x$ is defined as follows:
 
 $$
@@ -30,19 +33,20 @@ The complex exponential is $e^{-j2\pi ft} = \cos(2\pi ft) - j\sin(2\pi ft)$, so 
 We can think of this as a correlation operation: if $x(t)$ contains frequency $f$, the product $x(t) \cdot e^{-j2\pi ft}$ accumulates constructively, giving a large $|X(f)|$. If $x(t)$ doesn't contain frequency $f$, the product oscillates between positive and negative and cancels to nearly zero. The magnitude $|X(f)|$ tells you how much of that frequency is present, while the phase $\angle X(f)$ tells you its timing offset.
 
 ## From continuous to discrete
-In practice, we work with sampled data: digital audio, images, sensor readings. A continuous signal $x(t)$ becomes a finite sequence of samples $x[n]$.
+
+In practice, the continuous signal $x(t)$ becomes a finite sequence of samples $x[n]$.
 
 The Discrete Fourier Transform (DFT) is the sampled counterpart of the Fourier transform:
 $$
-X[k] = \sum_{n=0}^{N-1} x[n] e^{-j 2\pi k n / N}
+X[k] = \sum_{n=0}^{N-1} x[n] e^{-j 2\pi \frac{k}{N} n}
 $$
 
 where $k = 0, 1, \ldots, N-1$ are the discrete frequency bins.
 
 The integral becomes a sum, and instead of a continuous spectrum $X(f)$, we get $N$ discrete frequency coefficients $X[k]$. Each $k$ represents a frequency $f_k = \frac{k}{N} f_s$, where $f_s$ is the sampling rate.
 
-
 ## The DFT as a matrix
+
 We can rewrite the DFT formula as a matrix-vector multiplication:
 
 $$
@@ -52,31 +56,87 @@ $$
 where $x$ is the $N \times 1$ vector of time-domain samples, $X$ is the $N \times 1$ vector of frequency coefficients, and $W$ is the $N \times N$ DFT matrix with entries:
 
 $$
-W[k,n] = e^{-j 2\pi k n / N}
+W[k,n] = e^{-j 2\pi \frac{k}{N} n}
 $$
 
-This is a change of basis. To see why $W$ forms a valid basis, the key property is: the columns of $W$ are orthogonal. The dot product of any two distinct columns is:
+This is a change of basis.
+
+To see why $W$ forms a valid basis for $\mathbb{C}^N$, note that $W$ is made of $N$ orthogonal columns:
+
+The dot product of any two distinct columns is:
 
 $$
-\langle W_{:,k_1}, W_{:,k_2} \rangle = \sum_{n=0}^{N-1} e^{j 2\pi k_1 n / N} \cdot e^{-j 2\pi k_2 n / N} = \sum_{n=0}^{N-1} e^{j 2\pi (k_1 - k_2) n / N} = 0 \quad \text{when } k_1 \neq k_2
+\langle W_{:,k_1}, W_{:,k_2} \rangle = \sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1}{N} n} \cdot e^{-j 2\pi \frac{k_2}{N} n} = \sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1 - k_2}{N} n}
+$$
+
+If $k_1 \neq k_2$, let $r = e^{j 2\pi \frac{k_1 - k_2}{N}}$ and denote the sum as $S$. Then:
+
+$$
+S = 1 + r + r^2 + \cdots + r^{N-1}
+$$
+
+Multiply both sides by $r$:
+
+$$
+rS = r + r^2 + r^3 + \cdots + r^N
+$$
+
+Subtract $S$:
+
+$$
+rS - S = r^N - 1
+$$
+
+Then:
+
+$$
+S = \frac{r^N - 1}{r - 1}
+$$
+
+Therefore:
+
+$$
+S = \frac{e^{j 2\pi (k_1 - k_2)} - 1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = \frac{1 - 1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = 0
+$$
+
+since $e^{j 2\pi (k_1 - k_2)} = 1$ for any integer difference (a full rotation around the unit circle).
+
+When $k_1 = k_2$, the sum equals $N$ (all terms are $e^0 = 1$).
+
+**Unitarity:** We've shown that:
+$$
+\langle W_{:,k_1}, W_{:,k_2} \rangle = \begin{cases}
+N & \text{if } k_1 = k_2 \\
+0 & \text{if } k_1 \neq k_2
+\end{cases}
+$$
+
+The $(k_1, k_2)$ entry of the matrix product $W^* W$ is precisely $\langle W_{:,k_1}, W_{:,k_2} \rangle$. Therefore:
+$$
+W^* W = N I
 $$
 
 
-But why sinusoids specifically? Because they're eigenfunctions of LTI systems.
-
-The DFT matrix has beautiful structure. It's **symmetric** ($W = W^T$) and **unitary** ($W^* W = N I$), meaning the transformation preserves energy (Parseval's theorem). Apply it four times and you return to the original: $W^4 = N^2 I$. The DFT is essentially a rotation in complex space.
-
-hint Special structure enables fast computation (FFT)
 
 
 
-Why convolution becomes multiplication
 
 
 
-- 
+
+
+
+
+
+
+
+
+
+
+
 
 ## Properties of the DFT Matrix
+
 - **Unitary:** W*W† = N·I (energy preserved, orthogonal basis)
   - Parseval's theorem: Σ|x[n]|² = (1/N)Σ|X[k]|²
   - Information is preserved, just represented differently
@@ -91,6 +151,7 @@ Why convolution becomes multiplication
   - Eigenvalues are the DFT of first column
 
 ## The FFT Algorithm
+
 - Naive DFT: O(N²) operations (matrix-vector multiply)
 - Cooley-Tukey: exploit symmetry in W
   - Split even/odd samples
@@ -104,6 +165,7 @@ Why convolution becomes multiplication
 - Modern implementations highly optimized (FFTW)
 
 ## Practical Considerations
+
 - **Real signals:** conjugate symmetry → only compute N/2 frequencies (RFFT)
   - X[N-k] = X[k]* for real x[n]
   - Save factor of 2 in computation and storage
@@ -122,6 +184,7 @@ Why convolution becomes multiplication
   - Affects Parseval's theorem formula
 
 ## Common Transform Pairs
+
 - Impulse ↔ Constant (delta-constant duality)
 - Sinusoid ↔ Single peak
 - Box/Rectangle ↔ Sinc
@@ -134,6 +197,7 @@ Why convolution becomes multiplication
 ## Project: Poisson Image Editing
 
 ### What is Poisson's Equation?
+
 - Poisson's equation: ∇²u = f
 - ∇² is the Laplacian operator (measures how curved/smooth a function is)
 - In 2D images: ∂²u/∂x² + ∂²u/∂y² = f
@@ -142,6 +206,7 @@ Why convolution becomes multiplication
 - In images: describes how pixel values relate to their neighbors
 
 ### Why Use It for Images?
+
 - **Key insight:** Edit gradients (how fast pixels change), not pixels directly
 - Human vision is sensitive to edges and contrast, not absolute brightness
 - Preserving gradients = preserving texture and detail
@@ -150,6 +215,7 @@ Why convolution becomes multiplication
 - Gradient domain gives more perceptual control
 
 ### The Seamless Cloning Problem
+
 - Goal: paste region from source image S into target image T
 - Direct copy-paste creates visible seams (brightness mismatch)
 - **Poisson approach:**
@@ -160,6 +226,7 @@ Why convolution becomes multiplication
 - Used in professional editing software (Photoshop content-aware fill)
 
 ### Why This is Hard
+
 - Each pixel gives one equation
 - For N pixels, that's N equations with N unknowns
 - Forms a sparse linear system: Au = b
@@ -169,6 +236,7 @@ Why convolution becomes multiplication
 - Iterative methods (Jacobi, Gauss-Seidel) converge slowly
 
 ### How FFT Makes It Fast
+
 - **Laplacian is a convolution:** ∇²u = u ⊗ kernel where kernel = [0, 1, 0; 1, -4, 1; 0, 1, 0]
 - Discrete Laplacian approximates second derivatives
 - **In frequency domain:** convolution becomes multiplication
@@ -182,6 +250,7 @@ Why convolution becomes multiplication
 - Works because problem has special structure (translational invariance)
 
 ### Why This Connects to FFT Fundamentals
+
 - Laplacian eigenfunctions are sinusoids (same as Fourier basis!)
 - This is the **eigenfunction property** from earlier
 - Differential operators become multiplication in frequency domain
@@ -191,6 +260,7 @@ Why convolution becomes multiplication
 - Diagonalization makes solving trivial
 
 ### Applications Beyond Cloning
+
 - Object removal: fill holes by solving with surrounding boundary
 - Illumination correction: flatten lighting, keep texture
 - HDR tone mapping: compress dynamic range without losing detail
@@ -201,7 +271,9 @@ Why convolution becomes multiplication
 - Image matting: extract foreground with natural boundaries
 
 ### The Demo
+
 **User interaction:**
+
 - Upload background image and object to paste
 - Select region to clone (mask)
 - Click position in background
@@ -209,6 +281,7 @@ Why convolution becomes multiplication
 - Toggle to compare: direct paste vs Poisson blend
 
 **What happens behind the scenes:**
+
 - Extract gradient field (∇S) from source region
 - Compute Laplacian of source: ∇²S
 - Set boundary values from target image
@@ -218,6 +291,7 @@ Why convolution becomes multiplication
 - Process each color channel independently
 
 **Why surprising:**
+
 - FFT solves calculus, not just "frequency analysis"
 - Enables real-time PDE solving
 - Same math as audio processing, completely different application
@@ -226,6 +300,7 @@ Why convolution becomes multiplication
 - Shows power of thinking in frequency domain
 
 **Implementation notes:**
+
 - Use 2D FFT (separable: FFT rows then columns)
 - Handle boundary conditions carefully
 - Periodic boundary assumption can cause artifacts at edges
@@ -233,6 +308,7 @@ Why convolution becomes multiplication
 - RGB processed separately or convert to LAB color space
 
 ## Applications
+
 - Audio: MP3 compression, pitch detection, effects (reverb, EQ)
 - Images: JPEG (DCT variant), filtering, analysis
 - Communication: OFDM (WiFi/LTE), channel equalization
@@ -243,6 +319,7 @@ Why convolution becomes multiplication
 - Geophysics: seismic data analysis
 
 ## Extensions
+
 - **2D FFT:** images (separable: rows then columns)
 - **STFT:** time-varying signals (spectrograms)
 - **DCT:** real-valued, used in JPEG/MP3
@@ -252,6 +329,7 @@ Why convolution becomes multiplication
 - **Chirp Z-transform:** zoom into frequency region of interest
 
 ## Conclusion
+
 - FFT = change of basis, from time to frequency
 - Sinusoids are special: orthogonal, complete, eigenfunctions
 - O(N log N) makes it practical
