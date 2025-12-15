@@ -61,61 +61,74 @@ $$
 
 This is a change of basis.
 
-To see why $W$ forms a valid basis for $\mathbb{C}^N$, note that $W$ is made of $N$ orthogonal columns:
+### Why is it a valid basis
 
-The dot product of any two distinct columns is:
-
+$W$ is made of $N$ orthogonal columns, we can compute the inner product of columns $k_1$ and $k_2$:
 $$
-\langle W_{:,k_1}, W_{:,k_2} \rangle = \sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1}{N} n} \cdot e^{-j 2\pi \frac{k_2}{N} n} = \sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1 - k_2}{N} n}
-$$
-
-If $k_1 \neq k_2$, let $r = e^{j 2\pi \frac{k_1 - k_2}{N}}$ and denote the sum as $S$. Then:
-
-$$
-S = 1 + r + r^2 + \cdots + r^{N-1}
+\sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1}{N} n} \cdot e^{-j 2\pi \frac{k_2}{N} n} = \sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1 - k_2}{N} n}
 $$
 
-Multiply both sides by $r$:
+If $k_1 \neq k_2$, let $r = e^{j 2\pi \frac{k_1 - k_2}{N}}$ and $S = 1 + r + r^2 + \cdots + r^{N-1}$
+
+We multiply both sides by $r$
 
 $$
-rS = r + r^2 + r^3 + \cdots + r^N
+rS = r + r^2 + \cdots + r^N
 $$
 
-Subtract $S$:
+Then subtract $S$ 
 
 $$
 rS - S = r^N - 1
 $$
 
-Then:
-
+So
 $$
-S = \frac{r^N - 1}{r - 1}
-$$
-
-Therefore:
-
-$$
-S = \frac{e^{j 2\pi (k_1 - k_2)} - 1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = \frac{1 - 1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = 0
+S = \frac{r^N - 1}{r - 1} = \frac{e^{j 2\pi (k_1 - k_2)} - 1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = \frac{1-1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = 0
 $$
 
-since $e^{j 2\pi (k_1 - k_2)} = 1$ for any integer difference (a full rotation around the unit circle).
+since $e^{j 2\pi (k_1 - k_2)} = 1$
 
-When $k_1 = k_2$, the sum equals $N$ (all terms are $e^0 = 1$).
+When $k_1 = k_2$, all terms equal $1$, giving $N$
 
-**Unitarity:** We've shown that:
-$$
-\langle W_{:,k_1}, W_{:,k_2} \rangle = \begin{cases}
-N & \text{if } k_1 = k_2 \\
-0 & \text{if } k_1 \neq k_2
-\end{cases}
-$$
+### Unitarity and Parseval's theorem
 
-The $(k_1, k_2)$ entry of the matrix product $W^* W$ is precisely $\langle W_{:,k_1}, W_{:,k_2} \rangle$. Therefore:
+The orthogonality calculation above shows that $W^* W = NI$
+
+This unitarity means the DFT preserves energy:
+
 $$
-W^* W = N I
+\|x\|^2 = x^* x = \frac{1}{N} x^* (W^* W) x = \frac{1}{N} (Wx)^* (Wx) = \frac{1}{N} \|X\|^2
 $$
 
+This means that the representation of a signal in the frequency domain preserves the total energy of the signal, up to a factor of $1/N$.
+
+### The inverse DFT as a matrix
+
+The DFT matrix $W$ is invertible, and its inverse is given by
+
+$$
+W^{-1} = \frac{1}{N} W^*
+$$
+
+Thus, the inverse DFT can be expressed in matrix form as
+
+$$
+x = W^{-1} X = \frac{1}{N} W^* X
+$$
+
+
+### But why choose sin as basis ?
+
+Okay, the DFT is a change of basis. We can choose any other basis, why and when it make sense to  pick sinusoids (complex exponentials) for the DFT?
+
+The answer lies in how sinusoids interact with a huge class of systems we care about: Linear Time-Invariant (LTI) systems. It turns out sinusoids are special because they're the eigenvectors of LTI systems, meaning they pass through unchanged in shape, only scaled in amplitude and shifted in phase.
+
+### Linear Time-Invariant (LTI) systems
+
+### Sinusoids as eigenvectors of LTI systems
+
+### Circulant matrices
 
 
 
@@ -135,20 +148,23 @@ $$
 
 
 
-## Properties of the DFT Matrix
 
-- **Unitary:** W*W† = N·I (energy preserved, orthogonal basis)
-  - Parseval's theorem: Σ|x[n]|² = (1/N)Σ|X[k]|²
-  - Information is preserved, just represented differently
-- **Symmetric:** lots of internal structure
-  - Exploited by FFT algorithm
-  - Conjugate symmetry for real signals
-- **Circulant matrices are diagonalized by DFT**
-  - Convolution matrix Circ(h) becomes: W† · Circ(h) · W = Diagonal
-  - This is eigendecomposition: W† gives eigenvectors, diagonal gives eigenvalues
-  - **Why convolution becomes multiplication:** changing to basis where operator is diagonal
-  - Circulant matrices have sinusoids as eigenvectors
-  - Eigenvalues are the DFT of first column
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## The FFT Algorithm
 
