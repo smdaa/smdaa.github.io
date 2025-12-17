@@ -120,13 +120,110 @@ $$
 
 ### But why choose sin as basis ?
 
-Okay, the DFT is a change of basis. We can choose any other basis, why and when it make sense to  pick sinusoids (complex exponentials) for the DFT?
+Okay, so the DFT is a change of basis. We can choose any other basis, why and when it make sense to pick sinusoids (complex exponentials) ?
 
-The answer lies in how sinusoids interact with a huge class of systems we care about: Linear Time-Invariant (LTI) systems. It turns out sinusoids are special because they're the eigenvectors of LTI systems, meaning they pass through unchanged in shape, only scaled in amplitude and shifted in phase.
+The answer lies in how sinusoids interact with a class of systems we care about : Linear Time-Invariant (LTI) systems. It turns out sinusoids are special because they're the eigenvectors of LTI systems.
 
 ### Linear Time-Invariant (LTI) systems
 
+An LTI system is any system that satisfies two properties:
+
+Linearity : If the system produces an output $y_1(t)$ in response to an input $x_1(t)$, and an output $y_2(t)$ in response to an input $x_2(t)$, then for any scalars $a$ and $b$, the output corresponding to the input $a x_1(t) + b x_2(t)$ is $a y_1(t) + b y_2(t)$.
+
+Time invariance : If the system produces an output $y(t)$ in response to an input $x(t)$, then for any delay $\tau$, the input $x(t - \tau)$ will produce the output $y(t - \tau)$. meaning the system’s behavior does not change over time.
+
+LTI systems are interesting because they appear in many physical problems across engineering and science. Examples include mechanical vibrations, electrical circuits, acoustic wave propagation, etc. Even when a system is not perfectly linear or time-invariant, analyzing it as an LTI system can be an approximation that provides a valuable insight.
+
+
 ### Sinusoids as eigenvectors of LTI systems
+
+Thanks to its two defining properties an LTI system is completely characterized by its impulse response $h(t)$. This is the output of the system when the input is the unit impulse $\delta(t)$.
+
+In fact, we can write the input $x(t)$ as a weighted sum of shifted impulses:
+
+$$
+x(t) = \int_{-\infty}^{\infty} x(\tau) \delta(t - \tau) d\tau
+$$
+
+Therefore, using linearity and time invariance, the output is
+
+$$
+y(t) = \int_{-\infty}^{\infty} x(\tau) h(t - \tau) d\tau
+$$
+
+
+Now, if we feed a complex exponential into the system:
+
+$$
+x(t) = e^{j 2 \pi f t}
+$$
+
+then the output is (via a simple change of variable)
+
+$$
+y(t) = \int_{-\infty}^{\infty} h(\tau) e^{j 2 \pi f (t - \tau)} d\tau
+$$
+
+This simplifies to
+
+$$
+y(t) = \left( \int_{-\infty}^{\infty} h(\tau) e^{-j 2 \pi f \tau} d\tau \right) e^{j 2 \pi f t}
+$$
+
+Notice that the output is just the same exponential multiplied by a scalar:
+
+$$
+y(t) = H(f)  e^{j 2 \pi f t}
+$$
+
+where
+
+$$
+H(f) = \int_{-\infty}^{\infty} h(\tau) e^{-j 2 \pi f \tau} d\tau
+$$
+
+
+Now let’s move to sampled signals. A finite sequence $x[n]$ of length $N$ can be written as a vector:
+$$
+x = \begin{bmatrix} x[0] \\ x[1] \\ \vdots \\ x[N-1] \end{bmatrix}.
+$$
+
+Convolution with $h[n]$ can be expressed as multiplication by a Toeplitz matrix $H$:
+$$
+y = H x,
+$$
+where each row of $H$ is a shifted copy of $h[n]$. For example, if $h = [h[0], h[1], h[2]]$:
+$$
+H =
+\begin{bmatrix}
+h[0] & 0    & 0    & 0 \\
+h[1] & h[0] & 0    & 0 \\
+h[2] & h[1] & h[0] & 0 \\
+0    & h[2] & h[1] & h[0]
+\end{bmatrix}.
+$$
+
+
+Consider the vector
+$$
+v_\omega = \begin{bmatrix} 1 \\ e^{j\omega} \\ e^{j2\omega} \\ \vdots \\ e^{j(N-1)\omega} \end{bmatrix}.
+$$
+
+Applying $H$ gives
+$$
+H v_\omega = \lambda(\omega)\, v_\omega,
+$$
+with eigenvalue
+$$
+\lambda(\omega) = \sum_{k=0}^{M-1} h[k]\, e^{-j \omega k}.
+$$
+
+This is exactly the discrete-time frequency response $H(e^{j\omega})$.
+
+Sinusoids are preserved under LTI transformations: they come out scaled but not distorted.  
+This makes them the natural basis for representing signals. Just as diagonalizing a matrix reveals its action on eigenvectors, decomposing a signal into sinusoids reveals how an LTI system acts on each frequency. Convolution in time becomes multiplication in frequency.
+
+
 
 ### Circulant matrices
 
