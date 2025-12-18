@@ -139,7 +139,7 @@ LTI systems are interesting because they appear in many physical problems across
 
 Thanks to its two defining properties an LTI system is completely characterized by its impulse response $h(t)$. This is the output of the system when the input is the unit impulse $\delta(t)$.
 
-In fact, we can write the input $x(t)$ as a weighted sum of shifted impulses:
+In fact, we can write any input $x(t)$ as a weighted sum of shifted impulses:
 
 $$
 x(t) = \int_{-\infty}^{\infty} x(\tau) \delta(t - \tau) d\tau
@@ -151,92 +151,48 @@ $$
 y(t) = \int_{-\infty}^{\infty} x(\tau) h(t - \tau) d\tau
 $$
 
-
-Now, if we feed a complex exponential into the system:
-
-$$
-x(t) = e^{j 2 \pi f t}
-$$
-
-then the output is (via a simple change of variable)
+In discrete time, convolution can be represented as a matrix multiplication. If we collect $N$ samples of the input signal into a vector $x$, then the output $y$ can be written as:
 
 $$
-y(t) = \int_{-\infty}^{\infty} h(\tau) e^{j 2 \pi f (t - \tau)} d\tau
+y = H x
 $$
 
-This simplifies to
+where $H$ is an $N \times N$ Toeplitz matrix built from the impulse response $h$.
 
-$$
-y(t) = \left( \int_{-\infty}^{\infty} h(\tau) e^{-j 2 \pi f \tau} d\tau \right) e^{j 2 \pi f t}
-$$
-
-Notice that the output is just the same exponential multiplied by a scalar:
-
-$$
-y(t) = H(f)  e^{j 2 \pi f t}
-$$
-
-where
-
-$$
-H(f) = \int_{-\infty}^{\infty} h(\tau) e^{-j 2 \pi f \tau} d\tau
-$$
-
-
-Now let’s move to sampled signals. A finite sequence $x[n]$ of length $N$ can be written as a vector:
-$$
-x = \begin{bmatrix} x[0] \\ x[1] \\ \vdots \\ x[N-1] \end{bmatrix}.
-$$
-
-Convolution with $h[n]$ can be expressed as multiplication by a Toeplitz matrix $H$:
-$$
-y = H x,
-$$
-where each row of $H$ is a shifted copy of $h[n]$. For example, if $h = [h[0], h[1], h[2]]$:
 $$
 H =
 \begin{bmatrix}
-h[0] & 0    & 0    & 0 \\
-h[1] & h[0] & 0    & 0 \\
-h[2] & h[1] & h[0] & 0 \\
-0    & h[2] & h[1] & h[0]
+h[0]   & h[N-1] & h[N-2] & \cdots & h[1] \newline
+h[1]   & h[0]   & h[N-1] & \cdots & h[2] \newline
+h[2]   & h[1]   & h[0]   & \cdots & h[3] \newline
+\vdots & \vdots & \vdots & \ddots & \vdots \newline
+h[N-1] & h[N-2] & h[N-3] & \cdots & h[0]
 \end{bmatrix}.
 $$
 
+Circulant matrices have a special property: they are diagonalized by the DFT matrix $W$. This means
 
-Consider the vector
 $$
-v_\omega = \begin{bmatrix} 1 \\ e^{j\omega} \\ e^{j2\omega} \\ \vdots \\ e^{j(N-1)\omega} \end{bmatrix}.
-$$
-
-Applying $H$ gives
-$$
-H v_\omega = \lambda(\omega)\, v_\omega,
-$$
-with eigenvalue
-$$
-\lambda(\omega) = \sum_{k=0}^{M-1} h[k]\, e^{-j \omega k}.
+W H W^{-1} = \Lambda
 $$
 
-This is exactly the discrete-time frequency response $H(e^{j\omega})$.
+where $\Lambda$ is a diagonal matrix whose entries are the DFT of the impulse response $h$.
 
-Sinusoids are preserved under LTI transformations: they come out scaled but not distorted.  
-This makes them the natural basis for representing signals. Just as diagonalizing a matrix reveals its action on eigenvectors, decomposing a signal into sinusoids reveals how an LTI system acts on each frequency. Convolution in time becomes multiplication in frequency.
+Because circulant matrices are diagonalized by the DFT, their eigenvectors are the columns of $W$ — the sampled complex exponentials:
 
+$$
+v_k[n] = e^{j 2\pi \frac{k}{N} n}
+$$
 
+Each sinusoid $v_k$ is an eigenvector of $H$, with eigenvalue equal to the frequency response at that frequency:
 
-### Circulant matrices
+$$
+H v_k = H\!\left(\tfrac{k}{N}\right) v_k
+$$
 
+In the **time domain**, convolution corresponds to multiplying by a Toeplitz (or circulant) matrix.  
 
-
-
-
-
-
-
-
-
-
+In the **frequency domain**, the same operator becomes diagonal: each sinusoidal basis vector is scaled independently.  
 
 
 
@@ -263,7 +219,10 @@ This makes them the natural basis for representing signals. Just as diagonalizin
 
 
 
-## The FFT Algorithm
+
+
+
+<!-- ## The FFT Algorithm
 
 - Naive DFT: O(N²) operations (matrix-vector multiply)
 - Cooley-Tukey: exploit symmetry in W
@@ -275,9 +234,9 @@ This makes them the natural basis for representing signals. Just as diagonalizin
 - One of the most important algorithms in computing
 - Powers of 2 are optimal but not required
 - Many variants: radix-4, split-radix, prime-factor algorithm
-- Modern implementations highly optimized (FFTW)
+- Modern implementations highly optimized (FFTW) -->
 
-## Practical Considerations
+<!-- ## Practical Considerations
 
 - **Real signals:** conjugate symmetry → only compute N/2 frequencies (RFFT)
   - X[N-k] = X[k]* for real x[n]
@@ -449,4 +408,4 @@ This makes them the natural basis for representing signals. Just as diagonalizin
 - Applications go far beyond spectrum analysis
 - Enables real-time solving of problems that seem intractable
 - Same mathematical framework across diverse domains
-- Understanding basis perspective unlocks deeper insights
+- Understanding basis perspective unlocks deeper insights -->
