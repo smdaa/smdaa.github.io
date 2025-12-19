@@ -18,7 +18,7 @@ Seen through a linear-algebra lens, this is simply a change of basis.
 
 TODO: write hook
 
-## The math behind the fourier transform
+## Part I: The Mathematical Definition
 
 The fourier transfom for a signal $x$ is defined as follows:
 
@@ -120,44 +120,48 @@ $$
 
 ### But why choose sin as basis ?
 
-Okay, so the DFT is a change of basis. We can choose any other basis, why and when it make sense to pick sinusoids (complex exponentials) ?
+Okay, so the DFT is a change of basis. We can choose any other basis—why does it make sense to pick sinusoids (complex exponentials)?
 
-The answer lies in how sinusoids interact with a class of systems we care about : Linear Time-Invariant (LTI) systems. It turns out sinusoids are special because they're the eigenvectors of LTI systems.
+The answer lies in a remarkable property: sinusoids are eigenfunctions of Linear Time-Invariant (LTI) systems.
 
-### Linear Time-Invariant (LTI) systems
+LTIs are a broad class of systems that appear throughout engineering and physics. This means when you input a sinusoid into an LTI system, you get the same sinusoid back, just scaled and phase-shifted. 
+
+This special property makes the Fourier basis uniquely powerful for analyzing real-world systems.
+
+
+#### What are LTI systems?
 
 An LTI system is any system that satisfies two properties:
 
-Linearity : If the system produces an output $y_1(t)$ in response to an input $x_1(t)$, and an output $y_2(t)$ in response to an input $x_2(t)$, then for any scalars $a$ and $b$, the output corresponding to the input $a x_1(t) + b x_2(t)$ is $a y_1(t) + b y_2(t)$.
+Linearity: If the system produces an output $y_1(t)$ in response to an input $x_1(t)$, and an output $y_2(t)$ in response to an input $x_2(t)$, then for any scalars $a$ and $b$, the output corresponding to the input $a x_1(t) + b x_2(t)$ is $a y_1(t) + b y_2(t)$.
 
-Time invariance : If the system produces an output $y(t)$ in response to an input $x(t)$, then for any delay $\tau$, the input $x(t - \tau)$ will produce the output $y(t - \tau)$. meaning the system’s behavior does not change over time.
+Time invariance: If the system produces an output $y(t)$ in response to an input $x(t)$, then for any delay $\tau$, the input $x(t - \tau)$ will produce the output $y(t - \tau)$, meaning the system's behavior does not change over time.
 
-LTI systems are interesting because they appear in many physical problems across engineering and science. Examples include mechanical vibrations, electrical circuits, acoustic wave propagation, etc. Even when a system is not perfectly linear or time-invariant, analyzing it as an LTI system can be an approximation that provides a valuable insight.
+LTI systems appear in many physical problems across engineering and science: mechanical vibrations, electrical circuits, acoustic wave propagation, and more. Even when a system is not perfectly linear or time-invariant, analyzing it as an LTI system can provide valuable insight.
 
+#### From impulse response to convolution
 
-### Sinusoids as eigenvectors of LTI systems
+Thanks to its two defining properties, an LTI system is completely characterized by its impulse response $h(t)$ which is the output when the input is the unit impulse $\delta(t)$.
 
-Thanks to its two defining properties an LTI system is completely characterized by its impulse response $h(t)$. This is the output of the system when the input is the unit impulse $\delta(t)$.
-
-In fact, we can write any input $x(t)$ as a weighted sum of shifted impulses:
+Infact we can write any input $x(t)$ as a weighted sum of shifted impulses:
 
 $$
 x(t) = \int_{-\infty}^{\infty} x(\tau) \delta(t - \tau) d\tau
 $$
 
-Therefore, using linearity and time invariance, the output is
+Therefore, using linearity and time invariance, the output is:
 
 $$
 y(t) = \int_{-\infty}^{\infty} x(\tau) h(t - \tau) d\tau
 $$
 
-In discrete time, convolution can be represented as a matrix multiplication. If we collect $N$ samples of the input signal into a vector $x$, then the output $y$ can be written as:
+In discrete time, convolution can be represented as matrix multiplication. If we collect $N$ samples of the input signal into a vector $x$, then the output $y$ can be written as:
 
 $$
 y = H x
 $$
 
-where $H$ is an $N \times N$ Toeplitz matrix built from the impulse response $h$.
+where $H$ is an $N \times N$ circulant matrix built from the impulse response $h$:
 
 $$
 H =
@@ -167,10 +171,12 @@ h[1]   & h[0]   & h[N-1] & \cdots & h[2] \newline
 h[2]   & h[1]   & h[0]   & \cdots & h[3] \newline
 \vdots & \vdots & \vdots & \ddots & \vdots \newline
 h[N-1] & h[N-2] & h[N-3] & \cdots & h[0]
-\end{bmatrix}.
+\end{bmatrix}
 $$
 
-Circulant matrices have a special property: they are diagonalized by the DFT matrix $W$. This means
+#### The eigenfunction property
+
+This convolution structure reveals why sinusoids are special. Circulant matrices have a remarkable property: they are diagonalized by the DFT matrix $W$:
 
 $$
 W H W^{-1} = \Lambda
@@ -178,21 +184,89 @@ $$
 
 where $\Lambda$ is a diagonal matrix whose entries are the DFT of the impulse response $h$.
 
-Because circulant matrices are diagonalized by the DFT, their eigenvectors are the columns of $W$ — the sampled complex exponentials:
+In fact consider the $k$-th column of the DFT matrix:
 
 $$
-v_k[n] = e^{j 2\pi \frac{k}{N} n}
+v_k[n] = e^{j 2\pi \frac{k}{N} n} \quad n = 0, 1, \ldots, N-1
 $$
 
-Each sinusoid $v_k$ is an eigenvector of $H$, with eigenvalue equal to the frequency response at that frequency:
+Then 
 
 $$
-H v_k = H\!\left(\tfrac{k}{N}\right) v_k
+(H v_k)[m] = \sum_{n=0}^{N-1} h[m-n] v_k[n] = \sum_{n=0}^{N-1} h[m-n] e^{j 2\pi \frac{k}{N} n}
 $$
 
-In the **time domain**, convolution corresponds to multiplying by a Toeplitz (or circulant) matrix.  
+where indices are taken modulo $N$ due to the circulant structure. Let $\ell = m - n$, so $n = m - \ell$:
 
-In the **frequency domain**, the same operator becomes diagonal: each sinusoidal basis vector is scaled independently.  
+$$
+(H v_k)[m] = \sum_{\ell=0}^{N-1} h[\ell] e^{j 2\pi \frac{k}{N} (m-\ell)} = e^{j 2\pi \frac{k}{N} m} \sum_{\ell=0}^{N-1} h[\ell] e^{-j 2\pi \frac{k}{N} \ell}
+$$
+
+The sum on the right is precisely the $k$-th DFT coefficient of the impulse response:
+
+$$
+H[k] = \sum_{\ell=0}^{N-1} h[\ell] e^{-j 2\pi \frac{k}{N} \ell}
+$$
+
+Therefore:
+
+$$
+(H v_k)[m] = H[k] \cdot e^{j 2\pi \frac{k}{N} m} = H[k] \cdot v_k[m]
+$$
+
+
+This diagonalization is the key to understanding why working in the frequency domain is so powerful. Let's see what happens when we process a signal through an LTI system.
+
+**In the time domain**, applying the system means computing:
+$$
+y = H x
+$$
+
+This is convolution—an $O(N^2)$ operation where each output sample requires summing over all input samples weighted by the impulse response.
+
+**In the frequency domain**, we transform to the DFT basis:
+$$
+Y = W y = W H x
+$$
+
+Using the diagonalization $H = W^{-1} \Lambda W$:
+$$
+Y = W (W^{-1} \Lambda W) x = \Lambda (W x) = \Lambda X
+$$
+
+where $X = W x$ is the DFT of the input. Since $\Lambda$ is diagonal:
+
+$$
+Y[k] = H[k] \cdot X[k]
+$$
+
+**Convolution in the time domain becomes pointwise multiplication in the frequency domain.**
+
+Each frequency component is processed independently—the $k$-th frequency bin is simply scaled by $H[k]$. No mixing between frequencies, no summations. An $O(N^2)$ convolution becomes $N$ independent scalar multiplications.
+
+This is why the Fast Fourier Transform (FFT) algorithm is so valuable: it computes the DFT in $O(N \log N)$ time, making the "transform → multiply → inverse transform" approach faster than direct convolution for large $N$:
+
+$$
+y = W^{-1} (H[k] \cdot X)
+$$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
