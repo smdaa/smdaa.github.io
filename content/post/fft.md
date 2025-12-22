@@ -8,478 +8,165 @@ tags = ["todo"]
 
 ## Introduction
 
-A fundamental idea in signal processing is that signals can be represented using oscillations.
+## The core idea
 
-Periodic signals can be written as sums of sinusoids via Fourier series, while general nonperiodic signals can be described as an continuous superposition of complex exponentials via the Fourier transform.
-
-In practice (where we work with sampled, finite-length data) this becomes the discrete Fourier transform (DFT), which expresses any finite sequence (audio, image, or any timeseries data) as a weighted sum of discrete frequencies.
-
-Seen through a linear-algebra lens, this is simply a change of basis.
-
-TODO: write hook
-
-## Part I: The Mathematical Definition
-
-The fourier transfom for a signal $x$ is defined as follows:
+The Fourier transform correlates the signal with complex exponentials at different frequencies:
 
 $$
-X(f) = \int_{-\infty}^{\infty} x(t)\ e^{-j 2\pi f t}\ dt
+X(f) = \int_{-\infty}^{\infty} x(t) e^{-j 2\pi f t} dt
 $$
 
-At each frequency $f$, we multiply the signal $x(t)$ by a complex exponential $e^{-j2\pi ft}$ and integrate the result. The output $X(f)$ tells us how much of that frequency is present in the signal.
+For each frequency $f$, we multiply the signal by $e^{-j 2\pi f t}$ and integrate. If that frequency is present, the product accumulates constructively. If not, oscillations cancel out.
 
-The complex exponential is $e^{-j2\pi ft} = \cos(2\pi ft) - j\sin(2\pi ft)$, so we're actually multiplying with both cosine and sine simultaneously. This is essential: if we only used cosine, a signal at frequency $f$ but phase-shifted by $\pi/2$ would give zero and appear absent. The sine component catches it.
+$e^{-j 2\pi f t} = \cos(2\pi f t) - j \sin(2\pi f t)$ tests against sine and cosine simultaneously. A pure sine at frequency $f$ correlates zero with a cosine at $f$ (they're $90°$ out of phase), so we need both components.
 
-We can think of this as a correlation operation: if $x(t)$ contains frequency $f$, the product $x(t) \cdot e^{-j2\pi ft}$ accumulates constructively, giving a large $|X(f)|$. If $x(t)$ doesn't contain frequency $f$, the product oscillates between positive and negative and cancels to nearly zero. The magnitude $|X(f)|$ tells you how much of that frequency is present, while the phase $\angle X(f)$ tells you its timing offset.
+The output $X(f)$ is complex: magnitude $|X(f)|$ is the amplitude at frequency $f$, phase $\angle X(f)$ is the timing offset.
 
-## From continuous to discrete
+## The discrete version
 
-In practice, the continuous signal $x(t)$ becomes a finite sequence of samples $x[n]$.
-
-The Discrete Fourier Transform (DFT) is the sampled counterpart of the Fourier transform:
-$$
-X[k] = \sum_{n=0}^{N-1} x[n] e^{-j 2\pi \frac{k}{N} n}
-$$
-
-where $k = 0, 1, \ldots, N-1$ are the discrete frequency bins.
-
-The integral becomes a sum, and instead of a continuous spectrum $X(f)$, we get $N$ discrete frequency coefficients $X[k]$. Each $k$ represents a frequency $f_k = \frac{k}{N} f_s$, where $f_s$ is the sampling rate.
-
-## The DFT as a matrix
-
-We can rewrite the DFT formula as a matrix-vector multiplication:
+When signals are sampled at rate $f_s$, the Discrete Fourier Transform (DFT) replaces the continuous integral with a discrete sum over $N$ samples:
 
 $$
-X = W x
+X[k] = \sum_{n=0}^{N-1} x[n] e^{-j 2\pi kn/N}
 $$
 
-where $x$ is the $N \times 1$ vector of time-domain samples, $X$ is the $N \times 1$ vector of frequency coefficients, and $W$ is the $N \times N$ DFT matrix with entries:
+This produces $N$ frequency coefficients at frequencies:
 
 $$
-W[k,n] = e^{-j 2\pi \frac{k}{N} n}
+f_k = \frac{k f_s}{N}, \quad k = 0,1,\dots,N-1
 $$
 
-This is a change of basis.
+The DFT implicitly treats the signal as periodic with period $N$ samples. In other words, the sequence $x[n]$ is assumed to repeat indefinitely in time. As a consequence, discontinuities at the boundaries of the $N$-sample segment can introduce spectral leakage, and the frequency resolution is limited to $\Delta f = f_s / N$. More details on these effects are discussed later in the practical considerations.
 
-### Why is it a valid basis
+## Matrix form and change of basis
 
-$W$ is made of $N$ orthogonal columns, we can compute the inner product of columns $k_1$ and $k_2$:
-$$
-\sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1}{N} n} \cdot e^{-j 2\pi \frac{k_2}{N} n} = \sum_{n=0}^{N-1} e^{j 2\pi \frac{k_1 - k_2}{N} n}
-$$
-
-If $k_1 \neq k_2$, let $r = e^{j 2\pi \frac{k_1 - k_2}{N}}$ and $S = 1 + r + r^2 + \cdots + r^{N-1}$
-
-We multiply both sides by $r$
+The DFT is a matrix multiplication $X = Wx$ where:
 
 $$
-rS = r + r^2 + \cdots + r^N
+W_{kn} = e^{-j 2\pi kn/N}
 $$
 
-Then subtract $S$ 
+We can view the DFT as a projection of the signal into a new basis. In fact the columns of the matrix $W$ are orthogonal:
 
 $$
-rS - S = r^N - 1
+\sum_{n=0}^{N-1} e^{j 2\pi k_1 n/N} \cdot e^{-j 2\pi k_2 n/N} = \sum_{n=0}^{N-1} e^{j 2\pi (k_1-k_2)n/N}
 $$
 
-So
-$$
-S = \frac{r^N - 1}{r - 1} = \frac{e^{j 2\pi (k_1 - k_2)} - 1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = \frac{1-1}{e^{j 2\pi \frac{k_1 - k_2}{N}} - 1} = 0
-$$
+When $k_1 = k_2$, every term equals 1, giving $N$. When $k_1 \neq k_2$, this is a geometric series summing to zero (because $e^{j 2\pi(k_1-k_2)} = 1$).
 
-since $e^{j 2\pi (k_1 - k_2)} = 1$
-
-When $k_1 = k_2$, all terms equal $1$, giving $N$
-
-### Unitarity and Parseval's theorem
-
-The orthogonality calculation above shows that $W^* W = NI$
-
-This unitarity means the DFT preserves energy:
+Therefore:
 
 $$
-\|x\|^2 = x^* x = \frac{1}{N} x^* (W^* W) x = \frac{1}{N} (Wx)^* (Wx) = \frac{1}{N} \|X\|^2
+W^* W = NI
 $$
 
-This means that the representation of a signal in the frequency domain preserves the total energy of the signal, up to a factor of $1/N$.
+With this we can infer that the inverse DFT is computed with the matrix $W^{-1} = \frac{1}{N} W^*$
 
-### The inverse DFT as a matrix
-
-The DFT matrix $W$ is invertible, and its inverse is given by
+We can also infer the energy preservation, because:
 
 $$
-W^{-1} = \frac{1}{N} W^*
+\|x\|^2 = x^* x
+= \frac{1}{N} x^* (W^* W) x
+= \frac{1}{N} (W x)^* (W x)
+= \frac{1}{N} \|X\|^2
 $$
 
-Thus, the inverse DFT can be expressed in matrix form as
+In other words, representing a signal in the frequency domain preserves its total energy, up to a factor of $1/N$.
 
-$$
-x = W^{-1} X = \frac{1}{N} W^* X
-$$
+## Why complex exponentials?
 
+We've seen that the DFT projects signals onto a basis of complex exponentials. But why these particular functions? After all, many orthogonal bases exist: wavelets, polynomials, or other function families could mathematically represent signals just as well.
 
-### But why choose sin as basis ?
+Complex exponentials are special for two reasons: one physical, one computational.
 
-Okay, so the DFT is a change of basis. We can choose any other basis—why does it make sense to pick sinusoids (complex exponentials)?
+Physically, many natural phenomena are inherently oscillatory. Sound waves, electromagnetic radiation, and mechanical vibrations are all naturally described by sinusoids. When we decompose a signal into frequency components, we're often uncovering the actual physical processes that generated it.
 
-The answer lies in a remarkable property: sinusoids are eigenfunctions of Linear Time-Invariant (LTI) systems.
+Another reason is algebraic: complex exponentials are the eigenfunctions of Linear Time Invariant (LTI) systems. This property makes them uniquely powerful for analyzing how signals transform through physical systems.
 
-LTIs are a broad class of systems that appear throughout engineering and physics. This means when you input a sinusoid into an LTI system, you get the same sinusoid back, just scaled and phase-shifted. 
+### LTI systems and convolution
 
-This special property makes the Fourier basis uniquely powerful for analyzing real-world systems.
+An LTI system satisfies two properties:
 
+1. Linearity: If the system produces output $y_1(t)$ for input $x_1(t)$ and output $y_2(t)$ for input $x_2(t)$, then for any scalars $a$ and $b$, the input $a x_1(t) + b x_2(t)$ produces output $a y_1(t) + b y_2(t)$.
+2. Time invariance: If the system produces output $y(t)$ for input $x(t)$, then for any delay $\tau$, the input $x(t - \tau)$ produces output $y(t - \tau)$. The system's behavior does not change over time.
 
-#### What are LTI systems?
+LTI systems appear throughout engineering and science: electrical circuits, acoustic spaces, optical systems, communication channels. Even when a system isn't perfectly linear or time-invariant, the LTI approximation often provides useful insights.
 
-An LTI system is any system that satisfies two properties:
-
-Linearity: If the system produces an output $y_1(t)$ in response to an input $x_1(t)$, and an output $y_2(t)$ in response to an input $x_2(t)$, then for any scalars $a$ and $b$, the output corresponding to the input $a x_1(t) + b x_2(t)$ is $a y_1(t) + b y_2(t)$.
-
-Time invariance: If the system produces an output $y(t)$ in response to an input $x(t)$, then for any delay $\tau$, the input $x(t - \tau)$ will produce the output $y(t - \tau)$, meaning the system's behavior does not change over time.
-
-LTI systems appear in many physical problems across engineering and science: mechanical vibrations, electrical circuits, acoustic wave propagation, and more. Even when a system is not perfectly linear or time-invariant, analyzing it as an LTI system can provide valuable insight.
-
-#### From impulse response to convolution
-
-Thanks to its two defining properties, an LTI system is completely characterized by its impulse response $h(t)$ which is the output when the input is the unit impulse $\delta(t)$.
-
-Infact we can write any input $x(t)$ as a weighted sum of shifted impulses:
+An LTI system is completely characterized by its impulse response $h(t)$ which is the output when the input is a unit impulse $\delta(t)$. In fact any input can be written as a weighted sum of shifted impulses:
 
 $$
 x(t) = \int_{-\infty}^{\infty} x(\tau) \delta(t - \tau) d\tau
 $$
 
-Therefore, using linearity and time invariance, the output is:
+Using linearity and time invariance, the output becomes:
 
 $$
 y(t) = \int_{-\infty}^{\infty} x(\tau) h(t - \tau) d\tau
 $$
 
-In discrete time, convolution can be represented as matrix multiplication. If we collect $N$ samples of the input signal into a vector $x$, then the output $y$ can be written as:
+In discrete time with circular boundary conditions, this becomes:
 
 $$
-y = H x
+y[m] = \sum_{n=0}^{N-1} x[n] h[(m-n) \bmod N]
 $$
 
-where $H$ is an $N \times N$ circulant matrix built from the impulse response $h$:
+This circular convolution can be written as matrix multiplication $y = Hx$ where $H$ is a circulant matrix:
 
 $$
-H =
-\begin{bmatrix}
-h[0]   & h[N-1] & h[N-2] & \cdots & h[1] \newline
-h[1]   & h[0]   & h[N-1] & \cdots & h[2] \newline
-h[2]   & h[1]   & h[0]   & \cdots & h[3] \newline
-\vdots & \vdots & \vdots & \ddots & \vdots \newline
-h[N-1] & h[N-2] & h[N-3] & \cdots & h[0]
+H = \begin{bmatrix}
+h[0]   & h[N-1] & \cdots & h[1] \newline
+h[1]   & h[0]   & \cdots & h[2] \newline
+\vdots & \vdots & \ddots & \vdots \newline
+h[N-1] & h[N-2] & \cdots & h[0]
 \end{bmatrix}
 $$
 
-#### The eigenfunction property
+### Diagonalization by the DFT
 
-This convolution structure reveals why sinusoids are special. Circulant matrices have a remarkable property: they are diagonalized by the DFT matrix $W$:
-
-$$
-W H W^{-1} = \Lambda
-$$
-
-where $\Lambda$ is a diagonal matrix whose entries are the DFT of the impulse response $h$.
-
-In fact consider the $k$-th column of the DFT matrix:
+The key property is that circulant matrices are diagonalized by the DFT matrix. To see why, let $W$ be the DFT matrix with entries $W_{ij} = e^{-i 2\pi ij/N}$. Computing the $(i, j)$ entry of the product $HW$:
 
 $$
-v_k[n] = e^{j 2\pi \frac{k}{N} n} \quad n = 0, 1, \ldots, N-1
+\begin{aligned}
+(HW)\_{ij} &= \sum_{n=0}^{N-1} H_{in} W_{nj} \newline
+&= \sum_{n=0}^{N-1} h[(i-n) \bmod N] e^{-i 2 \pi nj/N}
+\end{aligned}
 $$
 
-Then 
+Let $r = (i - n) \bmod N$. Then $n \equiv (i - r) \pmod N$. Substituting:
 
 $$
-(H v_k)[m] = \sum_{n=0}^{N-1} h[m-n] v_k[n] = \sum_{n=0}^{N-1} h[m-n] e^{j 2\pi \frac{k}{N} n}
+\begin{aligned}
+(HW)\_{ij} &= \sum_{r=0}^{N-1} h[r] e^{-i 2\pi (i-r)j/N} \newline
+&= e^{-i 2\pi ij/N} \underbrace{\sum_{r=0}^{N-1} h[r] e^{i 2\pi rj/N}}_{\lambda_j} \newline
+\end{aligned}
 $$
 
-where indices are taken modulo $N$ due to the circulant structure. Let $\ell = m - n$, so $n = m - \ell$:
+This shows $HW = W\Lambda$, where $\Lambda = \text{diag}(\lambda_0, \dots, \lambda_{N-1})$. Multiplying by $W^{-1}$ gives:
 
 $$
-(H v_k)[m] = \sum_{\ell=0}^{N-1} h[\ell] e^{j 2\pi \frac{k}{N} (m-\ell)} = e^{j 2\pi \frac{k}{N} m} \sum_{\ell=0}^{N-1} h[\ell] e^{-j 2\pi \frac{k}{N} \ell}
+W^{-1}HW = \Lambda
 $$
 
-The sum on the right is precisely the $k$-th DFT coefficient of the impulse response:
+The columns of $W$ are eigenvectors of $H$, and the eigenvalues $\lambda_j$ are simply the DFT of the impulse response.
 
-$$
-H[k] = \sum_{\ell=0}^{N-1} h[\ell] e^{-j 2\pi \frac{k}{N} \ell}
-$$
+Geometrically, a matrix multiplication typically rotates and scales a vector in complicated ways. Diagonalization finds a special coordinate system where the transformation only scales along each axis, with no rotation or mixing between dimensions.
 
-Therefore:
+For LTI systems, this eigenbasis consists of the complex exponentials. Passing a sinusoid through an LTI system cannot change its frequency; it only scales its amplitude and shifts its phase. The system's effect on each frequency component is independent and determined by a single complex number $\lambda_j$.
 
-$$
-(H v_k)[m] = H[k] \cdot e^{j 2\pi \frac{k}{N} m} = H[k] \cdot v_k[m]
-$$
+This is why frequency-domain analysis is so powerful: complicated time-domain convolution becomes simple multiplication in the frequency domain.
 
+There is also a computational payoff, diagonalization transforms the convolution $y = Hx$ from a dense matrix-vector product into element-wise multiplication. In the time domain, computing the convolution directly requires $O(N^2)$ scalar multiplications. Using the DFT's eigenproperty, we decompose the operation into three steps:
 
-This diagonalization is the key to understanding why working in the frequency domain is so powerful. Let's see what happens when we process a signal through an LTI system.
+1. Transform input to frequency domain: $X[k] = \text{DFT}(x[n])$
+2. Multiply by frequency response: $Y[k] = \lambda_k \cdot X[k]$
+3. Transform back to time domain: $y[n] = \text{IDFT}(Y[k])$
 
-**In the time domain**, applying the system means computing:
-$$
-y = H x
-$$
+With the Fast Fourier Transform (FFT), steps 1 and 3 each take $O(N \log N)$ operations. The total complexity becomes $O(N \log N)$ instead of $O(N^2)$, a dramatic speedup for large $N$.
 
-This is convolution—an $O(N^2)$ operation where each output sample requires summing over all input samples weighted by the impulse response.
 
-**In the frequency domain**, we transform to the DFT basis:
-$$
-Y = W y = W H x
-$$
+## The FFT algorithm
 
-Using the diagonalization $H = W^{-1} \Lambda W$:
-$$
-Y = W (W^{-1} \Lambda W) x = \Lambda (W x) = \Lambda X
-$$
+The Fast Fourier Transform (FFT) exploits symmetries in the DFT's complex exponentials to reduce computational complexity from $O(N^2)$ to $O(N \log N)$. The key insight, discovered by Cooley and Tukey in 1965, is that a size $N$ DFT can be recursively broken down into smaller DFTs. By reusing intermediate calculations, the FFT eliminates redundant computations. It is widely regarded as one of the most impactful algorithms in the history of computing.
 
-where $X = W x$ is the DFT of the input. Since $\Lambda$ is diagonal:
+In practice, highly optimized FFT implementations are available in standard libraries across all major platforms. FFTW (Fastest Fourier Transform in the West) is considered the gold standard for C/C++, automatically tuning itself to the specific hardware.
 
-$$
-Y[k] = H[k] \cdot X[k]
-$$
-
-**Convolution in the time domain becomes pointwise multiplication in the frequency domain.**
-
-Each frequency component is processed independently—the $k$-th frequency bin is simply scaled by $H[k]$. No mixing between frequencies, no summations. An $O(N^2)$ convolution becomes $N$ independent scalar multiplications.
-
-This is why the Fast Fourier Transform (FFT) algorithm is so valuable: it computes the DFT in $O(N \log N)$ time, making the "transform → multiply → inverse transform" approach faster than direct convolution for large $N$:
-
-$$
-y = W^{-1} (H[k] \cdot X)
-$$
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<!-- ## The FFT Algorithm
-
-- Naive DFT: O(N²) operations (matrix-vector multiply)
-- Cooley-Tukey: exploit symmetry in W
-  - Split even/odd samples
-  - Recursively compute smaller DFTs
-  - Combine with twiddle factors
-- Complexity: O(N log N)
-- *Butterfly diagram for N=8*
-- One of the most important algorithms in computing
-- Powers of 2 are optimal but not required
-- Many variants: radix-4, split-radix, prime-factor algorithm
-- Modern implementations highly optimized (FFTW) -->
-
-<!-- ## Practical Considerations
-
-- **Real signals:** conjugate symmetry → only compute N/2 frequencies (RFFT)
-  - X[N-k] = X[k]* for real x[n]
-  - Save factor of 2 in computation and storage
-- **Windowing:** rectangular window causes spectral leakage
-  - Sharp edges in time → spread in frequency
-  - Windows: Hann, Hamming, Blackman taper the edges
-  - Trade-off: main lobe width vs side lobe level
-- **Zero-padding:** interpolates frequency domain (doesn't add information)
-  - Smooth frequency spectrum appearance
-  - Does not improve frequency resolution
-- **Nyquist frequency:** maximum detectable frequency = fs/2
-  - Higher frequencies alias to lower ones
-  - Anti-aliasing filter needed before sampling
-- **Normalization:** conventions vary (1/N on forward, inverse, or both)
-  - Check library documentation
-  - Affects Parseval's theorem formula
-
-## Common Transform Pairs
-
-- Impulse ↔ Constant (delta-constant duality)
-- Sinusoid ↔ Single peak
-- Box/Rectangle ↔ Sinc
-- Gaussian ↔ Gaussian (self-dual under FT)
-- Narrow in time ↔ Wide in frequency (uncertainty principle)
-- Derivative in time ↔ Multiplication by jω in frequency
-- Convolution in time ↔ Multiplication in frequency
-- Shift in time ↔ Phase shift in frequency
-
-## Project: Poisson Image Editing
-
-### What is Poisson's Equation?
-
-- Poisson's equation: ∇²u = f
-- ∇² is the Laplacian operator (measures how curved/smooth a function is)
-- In 2D images: ∂²u/∂x² + ∂²u/∂y² = f
-- u is the solution (output image), f is what we specify (source term)
-- Fundamental equation in physics: electrostatics, fluid flow, heat diffusion
-- In images: describes how pixel values relate to their neighbors
-
-### Why Use It for Images?
-
-- **Key insight:** Edit gradients (how fast pixels change), not pixels directly
-- Human vision is sensitive to edges and contrast, not absolute brightness
-- Preserving gradients = preserving texture and detail
-- Allows blending objects with different brightness levels seamlessly
-- Weber's law: we perceive relative changes, not absolute values
-- Gradient domain gives more perceptual control
-
-### The Seamless Cloning Problem
-
-- Goal: paste region from source image S into target image T
-- Direct copy-paste creates visible seams (brightness mismatch)
-- **Poisson approach:**
-  - Inside pasted region: preserve gradients from S (keep detail/texture)
-  - At boundary: match pixel values of T (no seam)
-  - Mathematically: solve ∇²u = ∇²S with boundary condition u|∂Ω = T|∂Ω
-- Result: seamless blend that preserves both source detail and target context
-- Used in professional editing software (Photoshop content-aware fill)
-
-### Why This is Hard
-
-- Each pixel gives one equation
-- For N pixels, that's N equations with N unknowns
-- Forms a sparse linear system: Au = b
-- Direct solve: O(N²) to O(N³) - too slow for real-time
-- Matrix A is sparse (each pixel only depends on neighbors)
-- But even sparse solvers are slow for large images
-- Iterative methods (Jacobi, Gauss-Seidel) converge slowly
-
-### How FFT Makes It Fast
-
-- **Laplacian is a convolution:** ∇²u = u ⊗ kernel where kernel = [0, 1, 0; 1, -4, 1; 0, 1, 0]
-- Discrete Laplacian approximates second derivatives
-- **In frequency domain:** convolution becomes multiplication
-  - ℱ{∇²u} = ℱ{kernel} · ℱ{u}
-- **Solving in frequency domain:**
-  - ℱ{u} = ℱ{f} / ℱ{kernel}
-  - u = ℱ⁻¹{ℱ{f} / ℱ{kernel}}
-- **Complexity:** O(N log N) instead of O(N³)
-- Each frequency component solves independently (diagonal in Fourier basis)
-- Division by zero at DC (k=0): handle separately with boundary conditions
-- Works because problem has special structure (translational invariance)
-
-### Why This Connects to FFT Fundamentals
-
-- Laplacian eigenfunctions are sinusoids (same as Fourier basis!)
-- This is the **eigenfunction property** from earlier
-- Differential operators become multiplication in frequency domain
-- FFT transforms calculus (PDEs) into algebra (division)
-- Each sinusoid is processed independently by Laplacian
-- Eigenvalue of frequency k: -4(sin²(πk/N) in x and y directions)
-- Diagonalization makes solving trivial
-
-### Applications Beyond Cloning
-
-- Object removal: fill holes by solving with surrounding boundary
-- Illumination correction: flatten lighting, keep texture
-- HDR tone mapping: compress dynamic range without losing detail
-- Document scanning: remove lighting variations, flatten texture
-- Gradient domain editing: manipulate gradients, reconstruct image
-- Panorama stitching: blend overlapping images seamlessly
-- Shadow removal: flatten shadows while preserving edges
-- Image matting: extract foreground with natural boundaries
-
-### The Demo
-
-**User interaction:**
-
-- Upload background image and object to paste
-- Select region to clone (mask)
-- Click position in background
-- Instant seamless blend
-- Toggle to compare: direct paste vs Poisson blend
-
-**What happens behind the scenes:**
-
-- Extract gradient field (∇S) from source region
-- Compute Laplacian of source: ∇²S
-- Set boundary values from target image
-- FFT(∇²S) → divide by FFT(Laplacian kernel) → IFFT
-- Handle DC component separately (preserve average intensity)
-- Result: perfect blend in milliseconds
-- Process each color channel independently
-
-**Why surprising:**
-
-- FFT solves calculus, not just "frequency analysis"
-- Enables real-time PDE solving
-- Same math as audio processing, completely different application
-- Professional image editing software uses this (Photoshop content-aware fill)
-- Bridge between signal processing and computational photography
-- Shows power of thinking in frequency domain
-
-**Implementation notes:**
-
-- Use 2D FFT (separable: FFT rows then columns)
-- Handle boundary conditions carefully
-- Periodic boundary assumption can cause artifacts at edges
-- May need to extend domain or use DCT instead
-- RGB processed separately or convert to LAB color space
-
-## Applications
-
-- Audio: MP3 compression, pitch detection, effects (reverb, EQ)
-- Images: JPEG (DCT variant), filtering, analysis
-- Communication: OFDM (WiFi/LTE), channel equalization
-- Science: spectroscopy, MRI, radio astronomy
-- Math: fast polynomial multiplication, convolution, PDEs
-- Computer graphics: texture synthesis, seamless tiling
-- Medical imaging: CT reconstruction, MRI processing
-- Geophysics: seismic data analysis
-
-## Extensions
-
-- **2D FFT:** images (separable: rows then columns)
-- **STFT:** time-varying signals (spectrograms)
-- **DCT:** real-valued, used in JPEG/MP3
-- **Wavelets:** better time-frequency localization
-- **Non-uniform FFT (NUFFT):** irregular sampling
-- **Fractional Fourier transform:** rotation in time-frequency plane
-- **Chirp Z-transform:** zoom into frequency region of interest
-
-## Conclusion
-
-- FFT = change of basis, from time to frequency
-- Sinusoids are special: orthogonal, complete, eigenfunctions
-- O(N log N) makes it practical
-- Applications go far beyond spectrum analysis
-- Enables real-time solving of problems that seem intractable
-- Same mathematical framework across diverse domains
-- Understanding basis perspective unlocks deeper insights -->
