@@ -13,12 +13,12 @@ tags = ["todo"]
 The Fourier transform correlates the signal with complex exponentials at different frequencies:
 
 $$
-X(f) = \int_{-\infty}^{\infty} x(t) e^{-j 2\pi f t} dt
+X(f) = \int_{-\infty}^{\infty} x(t) e^{-i 2\pi f t} dt
 $$
 
-For each frequency $f$, we multiply the signal by $e^{-j 2\pi f t}$ and integrate. If that frequency is present, the product accumulates constructively. If not, oscillations cancel out.
+For each frequency $f$, we multiply the signal by $e^{-i 2\pi f t}$ and integrate. If that frequency is present, the product accumulates constructively. If not, oscillations cancel out.
 
-$e^{-j 2\pi f t} = \cos(2\pi f t) - j \sin(2\pi f t)$ tests against sine and cosine simultaneously. A pure sine at frequency $f$ correlates zero with a cosine at $f$ (they're $90°$ out of phase), so we need both components.
+$e^{-i 2\pi f t} = \cos(2\pi f t) - i \sin(2\pi f t)$ tests against sine and cosine simultaneously. A pure sine at frequency $f$ correlates zero with a cosine at $f$ (they're $90°$ out of phase), so we need both components.
 
 The output $X(f)$ is complex: magnitude $|X(f)|$ is the amplitude at frequency $f$, phase $\angle X(f)$ is the timing offset.
 
@@ -27,7 +27,7 @@ The output $X(f)$ is complex: magnitude $|X(f)|$ is the amplitude at frequency $
 When signals are sampled at rate $f_s$, the Discrete Fourier Transform (DFT) replaces the continuous integral with a discrete sum over $N$ samples:
 
 $$
-X[k] = \sum_{n=0}^{N-1} x[n] e^{-j 2\pi kn/N}
+X[k] = \sum_{n=0}^{N-1} x[n] e^{-i 2\pi kn/N}
 $$
 
 This produces $N$ frequency coefficients at frequencies:
@@ -43,16 +43,16 @@ The DFT implicitly treats the signal as periodic with period $N$ samples. In oth
 The DFT is a matrix multiplication $X = Wx$ where:
 
 $$
-W_{kn} = e^{-j 2\pi kn/N}
+W_{kn} = e^{-i 2\pi kn/N}
 $$
 
 We can view the DFT as a projection of the signal into a new basis. In fact the columns of the matrix $W$ are orthogonal:
 
 $$
-\sum_{n=0}^{N-1} e^{j 2\pi k_1 n/N} \cdot e^{-j 2\pi k_2 n/N} = \sum_{n=0}^{N-1} e^{j 2\pi (k_1-k_2)n/N}
+\sum_{n=0}^{N-1} e^{i 2\pi k_1 n/N} \cdot e^{-i 2\pi k_2 n/N} = \sum_{n=0}^{N-1} e^{i 2\pi (k_1-k_2)n/N}
 $$
 
-When $k_1 = k_2$, every term equals 1, giving $N$. When $k_1 \neq k_2$, this is a geometric series summing to zero (because $e^{j 2\pi(k_1-k_2)} = 1$).
+When $k_1 = k_2$, every term equals 1, giving $N$. When $k_1 \neq k_2$, this is a geometric series summing to zero (because $e^{i 2\pi(k_1-k_2)} = 1$).
 
 Therefore:
 
@@ -60,7 +60,10 @@ $$
 W^* W = NI
 $$
 
-With this we can infer that the inverse DFT is computed with the matrix $W^{-1} = \frac{1}{N} W^*$
+With this we can infer that the inverse DFT is computed with the matrix
+$$
+W^{-1} = \frac{1}{N} W^*
+$$
 
 We can also infer the energy preservation, because:
 
@@ -123,28 +126,39 @@ $$
 
 ### Diagonalization by the DFT
 
-The key property is that circulant matrices are diagonalized by the DFT matrix. To see why, let $W$ be the DFT matrix with entries $W_{ij} = e^{-i 2\pi ij/N}$. Computing the $(i, j)$ entry of the product $HW$:
+The key property is that circulant matrices are diagonalized by the DFT matrix. To see why, let $W$ be the DFT matrix with entries
+$$
+W_{nj} = e^{-i 2\pi nj/N}
+$$
+
+Computing the $(m, j)$ entry of the product $HW$:
 
 $$
 \begin{aligned}
-(HW)\_{ij} &= \sum_{n=0}^{N-1} H_{in} W_{nj} \newline
-&= \sum_{n=0}^{N-1} h[(i-n) \bmod N] e^{-i 2 \pi nj/N}
+(HW)\_{mj} &= \sum_{n=0}^{N-1} H_{mn} W_{nj} \newline
+&= \sum_{n=0}^{N-1} h[(m-n) \bmod N] e^{-i 2\pi nj/N}
 \end{aligned}
 $$
 
-Let $r = (i - n) \bmod N$. Then $n \equiv (i - r) \pmod N$. Substituting:
+Let $r = (m - n) \bmod N$. Then $n \equiv (m - r) \pmod N$. Substituting:
 
 $$
 \begin{aligned}
-(HW)\_{ij} &= \sum_{r=0}^{N-1} h[r] e^{-i 2\pi (i-r)j/N} \newline
-&= e^{-i 2\pi ij/N} \underbrace{\sum_{r=0}^{N-1} h[r] e^{i 2\pi rj/N}}_{\lambda_j} \newline
+(HW)\_{mj} &= \sum_{r=0}^{N-1} h[r] e^{-i 2\pi (m-r)j/N} \newline
+&= e^{-i 2\pi mj/N}
+\underbrace{\sum_{r=0}^{N-1} h[r] e^{i 2\pi rj/N}}_{\lambda_j}
 \end{aligned}
 $$
 
-This shows $HW = W\Lambda$, where $\Lambda = \text{diag}(\lambda_0, \dots, \lambda_{N-1})$. Multiplying by $W^{-1}$ gives:
+This shows $HW = W\Lambda$, where
+$$
+\Lambda = \text{diag}(\lambda_0, \dots, \lambda_{N-1}).
+$$
+
+Multiplying by $W^{-1}$ gives:
 
 $$
-W^{-1}HW = \Lambda
+W^{-1} H W = \Lambda
 $$
 
 The columns of $W$ are eigenvectors of $H$, and the eigenvalues $\lambda_j$ are simply the DFT of the impulse response.
@@ -155,7 +169,7 @@ For LTI systems, this eigenbasis consists of the complex exponentials. Passing a
 
 This is why frequency-domain analysis is so powerful: complicated time-domain convolution becomes simple multiplication in the frequency domain.
 
-There is also a computational payoff, diagonalization transforms the convolution $y = Hx$ from a dense matrix-vector product into element-wise multiplication. In the time domain, computing the convolution directly requires $O(N^2)$ scalar multiplications. Using the DFT's eigenproperty, we decompose the operation into three steps:
+There is also a computational payoff. Diagonalization transforms the convolution $y = Hx$ from a dense matrix-vector product into element-wise multiplication. In the time domain, computing the convolution directly requires $O(N^2)$ scalar multiplications. Using the DFT's eigenproperty, we decompose the operation into three steps:
 
 1. Transform input to frequency domain: $X[k] = \text{DFT}(x[n])$
 2. Multiply by frequency response: $Y[k] = \lambda_k \cdot X[k]$
@@ -163,10 +177,8 @@ There is also a computational payoff, diagonalization transforms the convolution
 
 With the Fast Fourier Transform (FFT), steps 1 and 3 each take $O(N \log N)$ operations. The total complexity becomes $O(N \log N)$ instead of $O(N^2)$, a dramatic speedup for large $N$.
 
-
 ## The FFT algorithm
 
 The Fast Fourier Transform (FFT) exploits symmetries in the DFT's complex exponentials to reduce computational complexity from $O(N^2)$ to $O(N \log N)$. The key insight, discovered by Cooley and Tukey in 1965, is that a size $N$ DFT can be recursively broken down into smaller DFTs. By reusing intermediate calculations, the FFT eliminates redundant computations. It is widely regarded as one of the most impactful algorithms in the history of computing.
 
 In practice, highly optimized FFT implementations are available in standard libraries across all major platforms. FFTW (Fastest Fourier Transform in the West) is considered the gold standard for C/C++, automatically tuning itself to the specific hardware.
-
