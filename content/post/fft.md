@@ -46,7 +46,9 @@ $$
 W_{kn} = e^{-i 2\pi kn/N}
 $$
 
-We can view the DFT as a projection of the signal into a new basis. In fact the columns of the matrix $W$ are orthogonal:
+We can view the DFT as a change of basis, expressing the signal in the coordinates of the complex exponential basis.
+
+In fact the columns of the matrix $W$ are orthogonal:
 
 $$
 \sum_{n=0}^{N-1} e^{i 2\pi k_1 n/N} \cdot e^{-i 2\pi k_2 n/N} = \sum_{n=0}^{N-1} e^{i 2\pi (k_1-k_2)n/N}
@@ -74,13 +76,14 @@ $$
 = \frac{1}{N} \|X\|^2
 $$
 
-In other words, representing a signal in the frequency domain preserves its total energy, up to a factor of $1/N$.
+In other words, representing a signal in the frequency domain preserves its total energy, up to a factor of $1/N$. This result is known as Parseval's theorem.
+
 
 ## Why complex exponentials?
 
 We've seen that the DFT projects signals onto a basis of complex exponentials. But why these particular functions? After all, many orthogonal bases exist: wavelets, polynomials, or other function families could mathematically represent signals just as well.
 
-Complex exponentials are special for two reasons: one physical, one computational.
+Complex exponentials are special for two reasons: one physical, one algebraic.
 
 Physically, many natural phenomena are inherently oscillatory. Sound waves, electromagnetic radiation, and mechanical vibrations are all naturally described by sinusoids. When we decompose a signal into frequency components, we're often uncovering the actual physical processes that generated it.
 
@@ -116,6 +119,10 @@ $$
 This circular convolution can be written as matrix multiplication $y = Hx$ where $H$ is a circulant matrix:
 
 $$
+H_{mn} = h[(m-n) \bmod N]
+$$
+
+$$
 H = \begin{bmatrix}
 h[0]   & h[N-1] & \cdots & h[1] \newline
 h[1]   & h[0]   & \cdots & h[2] \newline
@@ -126,17 +133,12 @@ $$
 
 ### Diagonalization by the DFT
 
-The key property is that circulant matrices are diagonalized by the DFT matrix. To see why, let $W$ be the DFT matrix with entries
-$$
-W_{nj} = e^{-i 2\pi nj/N}
-$$
-
-Computing the $(m, j)$ entry of the product $HW$:
+The key property is that circulant matrices are diagonalized by the DFT matrix. To see why, we can compute the $(m, k)$ entry of the product $HW$:
 
 $$
 \begin{aligned}
-(HW)\_{mj} &= \sum_{n=0}^{N-1} H_{mn} W_{nj} \newline
-&= \sum_{n=0}^{N-1} h[(m-n) \bmod N] e^{-i 2\pi nj/N}
+(HW)\_{mk}
+&= \sum_{n=0}^{N-1} h[(m-n) \bmod N] e^{-i 2\pi nk/N}
 \end{aligned}
 $$
 
@@ -144,9 +146,9 @@ Let $r = (m - n) \bmod N$. Then $n \equiv (m - r) \pmod N$. Substituting:
 
 $$
 \begin{aligned}
-(HW)\_{mj} &= \sum_{r=0}^{N-1} h[r] e^{-i 2\pi (m-r)j/N} \newline
-&= e^{-i 2\pi mj/N}
-\underbrace{\sum_{r=0}^{N-1} h[r] e^{i 2\pi rj/N}}_{\lambda_j}
+(HW)\_{mk} &= \sum_{r=0}^{N-1} h[r] e^{-i 2\pi (m-r)k/N} \\
+&= e^{-i 2\pi mk/N}
+\underbrace{\sum_{r=0}^{N-1} h[r] e^{i 2\pi rk/N}}_{\lambda_k}
 \end{aligned}
 $$
 
@@ -161,19 +163,19 @@ $$
 W^{-1} H W = \Lambda
 $$
 
-The columns of $W$ are eigenvectors of $H$, and the eigenvalues $\lambda_j$ are simply the DFT of the impulse response.
+The columns of $W$ are eigenvectors of $H$, and the eigenvalues $\lambda_k$ are simply the complex conjugate DFT of the impulse response.
 
 Geometrically, a matrix multiplication typically rotates and scales a vector in complicated ways. Diagonalization finds a special coordinate system where the transformation only scales along each axis, with no rotation or mixing between dimensions.
 
-For LTI systems, this eigenbasis consists of the complex exponentials. Passing a sinusoid through an LTI system cannot change its frequency; it only scales its amplitude and shifts its phase. The system's effect on each frequency component is independent and determined by a single complex number $\lambda_j$.
+For LTI systems, this eigenbasis consists of the complex exponentials. Passing a sinusoid through an LTI system cannot change its frequency; it only scales its amplitude and shifts its phase. The system's effect on each frequency component is independent and determined by a single complex number $\lambda_k$.
 
 This is why frequency-domain analysis is so powerful: complicated time-domain convolution becomes simple multiplication in the frequency domain.
 
 There is also a computational payoff. Diagonalization transforms the convolution $y = Hx$ from a dense matrix-vector product into element-wise multiplication. In the time domain, computing the convolution directly requires $O(N^2)$ scalar multiplications. Using the DFT's eigenproperty, we decompose the operation into three steps:
 
-1. Transform input to frequency domain: $X[k] = \text{DFT}(x[n])$
-2. Multiply by frequency response: $Y[k] = \lambda_k \cdot X[k]$
-3. Transform back to time domain: $y[n] = \text{IDFT}(Y[k])$
+1. Transform input to frequency domain
+2. Multiply by frequency response
+3. Transform back to time domain
 
 With the Fast Fourier Transform (FFT), steps 1 and 3 each take $O(N \log N)$ operations. The total complexity becomes $O(N \log N)$ instead of $O(N^2)$, a dramatic speedup for large $N$.
 
