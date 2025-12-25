@@ -43,7 +43,7 @@ The DFT implicitly treats the signal as periodic with period $N$ samples. In oth
 The DFT is a matrix multiplication $X = Wx$ where:
 
 $$
-W_{kn} = e^{-i 2\pi kn/N}
+W[k, n] = e^{-i 2\pi kn/N}
 $$
 
 We can view the DFT as a change of basis, expressing the signal in the coordinates of the complex exponential basis.
@@ -119,7 +119,7 @@ $$
 This circular convolution can be written as matrix multiplication $y = Hx$ where $H$ is a circulant matrix:
 
 $$
-H_{mn} = h[(m-n) \bmod N]
+H[m, n] = h[(m-n) \bmod N]
 $$
 
 $$
@@ -137,7 +137,7 @@ The key property is that circulant matrices are diagonalized by the DFT matrix. 
 
 $$
 \begin{aligned}
-(HW)\_{mk}
+(HW)[m, k]
 &= \sum_{n=0}^{N-1} h[(m-n) \bmod N] e^{-i 2\pi nk/N}
 \end{aligned}
 $$
@@ -146,7 +146,7 @@ Let $r = (m - n) \bmod N$. Then $n \equiv (m - r) \pmod N$. Substituting:
 
 $$
 \begin{aligned}
-(HW)\_{mk} &= \sum_{r=0}^{N-1} h[r] e^{-i 2\pi (m-r)k/N} \\
+(HW)[m, k] &= \sum_{r=0}^{N-1} h[r] e^{-i 2\pi (m-r)k/N} \\
 &= e^{-i 2\pi mk/N}
 \underbrace{\sum_{r=0}^{N-1} h[r] e^{i 2\pi rk/N}}_{\lambda_k}
 \end{aligned}
@@ -181,6 +181,41 @@ With the Fast Fourier Transform (FFT), steps 1 and 3 each take $O(N \log N)$ ope
 
 ## The FFT algorithm
 
-The Fast Fourier Transform (FFT) exploits symmetries in the DFT's complex exponentials to reduce computational complexity from $O(N^2)$ to $O(N \log N)$. The key insight, discovered by Cooley and Tukey in 1965, is that a size $N$ DFT can be recursively broken down into smaller DFTs. By reusing intermediate calculations, the FFT eliminates redundant computations. It is widely regarded as one of the most impactful algorithms in the history of computing.
+The Fast Fourier Transform (FFT) exploits symmetries in the DFT's complex exponentials to reduce computational complexity from $O(N^2)$ to $O(N \log N)$. 
 
-In practice, highly optimized FFT implementations are available in standard libraries across all major platforms. FFTW (Fastest Fourier Transform in the West) is considered the gold standard for C/C++, automatically tuning itself to the specific hardware.
+It's not an approximation; it is an exact factorization of the DFT matrix $W_N$ into a product of sparse matrices.
+
+To see this let's start with the definition of the DFT for size $N$ (assuming $N$ is even):
+
+$$
+X[k] = \sum_{n=0}^{N-1} x[n] e^{-i 2\pi kn/N}
+$$
+
+We separate the summation index $n$ into even indices ($n=2m$) and odd indices ($n=2m+1$):
+
+$$
+\begin{aligned}
+X[k] &= \sum_{m=0}^{N/2-1} x[2m] e^{-i 2\pi (2m)k/N} + \sum_{m=0}^{N/2-1} x[2m+1] e^{-i 2\pi (2m+1)k/N} \newline
+&= \sum_{m=0}^{N/2-1} x[2m] e^{-i 2\pi mk/(N/2)} + e^{-i 2\pi k/N} \sum_{m=0}^{N/2-1} x[2m+1] e^{-i 2\pi mk/(N/2)}
+\end{aligned}
+$$
+
+Notice that these two summations are themselves length-$N/2$ DFTs of the even indexed and odd indexed samples. 
+
+Let $E[k]$ be the DFT of the even samples and $O[k]$ be the DFT of the odd samples. The expression simplifies to:
+
+$$
+X[k] = E[k] + \omega^k O[k]
+$$
+
+Where $\omega = e^{-i 2\pi / N}$ is the "twiddle factor."
+
+Due to the periodicity of the DFT, $E[k + N/2] = E[k]$ and $O[k + N/2] = O[k]$. However, the twiddle factor undergoes a phase shift: $\omega^{k + N/2} = e^{-i 2\pi (k+N/2)/N} = e^{-i 2\pi k/N} e^{-i \pi} = -\omega^k$. This symmetry allows us to compute two values of $X$ for the cost of one:
+
+$$
+\begin{aligned}
+X[k] &= E[k] + \omega^k O[k] \newline
+X[k + N/2] &= E[k] - \omega^k O[k]
+\end{aligned}
+$$
+
