@@ -1,14 +1,19 @@
 +++
-title = "TODO"
-date = 2025-11-22
-tags = ["todo"]
+title = "The Discrete Fourier Transform as a change of basis"
+date = 2026-01-10
+tags = ["fourier-transform", "signal-processing", "linear-algebra", "fft"]
+
 +++
 
 {{< toc >}}
 
 ## Introduction
 
-## The core idea
+The Fourier Transform is usually introduced as a way to analyze frequencies in signals. But its importance goes far beyond spectral analysis: it speeds up convolution, simplifies linear systems, and underpins fast algorithms used throughout science and engineering.
+
+All of these uses come from one idea: the Discrete Fourier Transform is a change of basis. Instead of describing a signal by its samples in time, the DFT represents it in terms of complex exponentials. This viewpoint explains both how the transform works and why it is so effective in practice.
+
+## The Fourier transform
 
 The Fourier transform correlates the signal with complex exponentials at different frequencies:
 
@@ -181,41 +186,107 @@ With the Fast Fourier Transform (FFT), steps 1 and 3 each take $O(N \log N)$ ope
 
 ## The FFT algorithm
 
-The Fast Fourier Transform (FFT) exploits symmetries in the DFT's complex exponentials to reduce computational complexity from $O(N^2)$ to $O(N \log N)$. 
+The naive DFT requires $O(N^2)$ operations. The Fast Fourier Transform reduces this to $O(N \log N)$ through a divide and conquer strategy.
 
-It's not an approximation; it is an exact factorization of the DFT matrix $W_N$ into a product of sparse matrices.
+There isn't a single FFT algorithm but rather a family of algorithms. The most common is the Cooley-Tukey radix-2 algorithm, which requires $N$ to be a power of 2.
 
-To see this let's start with the definition of the DFT for size $N$ (assuming $N$ is even):
+The key insight is that the DFT can be split into even and odd indexed samples. For $N$ a power of 2:
 
 $$
 X[k] = \sum_{n=0}^{N-1} x[n] e^{-i 2\pi kn/N}
+= \sum_{m=0}^{N/2-1} x[2m] e^{-i 2\pi k(2m)/N} + \sum_{m=0}^{N/2-1} x[2m+1] e^{-i 2\pi k(2m+1)/N}
 $$
 
-We separate the summation index $n$ into even indices ($n=2m$) and odd indices ($n=2m+1$):
+Factor out the extra term from the odd sum:
 
 $$
-\begin{aligned}
-X[k] &= \sum_{m=0}^{N/2-1} x[2m] e^{-i 2\pi (2m)k/N} + \sum_{m=0}^{N/2-1} x[2m+1] e^{-i 2\pi (2m+1)k/N} \newline
-&= \sum_{m=0}^{N/2-1} x[2m] e^{-i 2\pi mk/(N/2)} + e^{-i 2\pi k/N} \sum_{m=0}^{N/2-1} x[2m+1] e^{-i 2\pi mk/(N/2)}
-\end{aligned}
+X[k] = \sum_{m=0}^{N/2-1} x[2m] e^{-i 2\pi km/(N/2)} + e^{-i 2\pi k/N} \sum_{m=0}^{N/2-1} x[2m+1] e^{-i 2\pi km/(N/2)}
 $$
 
-Notice that these two summations are themselves length-$N/2$ DFTs of the even indexed and odd indexed samples. 
-
-Let $E[k]$ be the DFT of the even samples and $O[k]$ be the DFT of the odd samples. The expression simplifies to:
+The two sums are DFTs of size $N/2$. Define:
 
 $$
-X[k] = E[k] + \omega^k O[k]
+X_{\text{even}}[k] = \sum_{m=0}^{N/2-1} x[2m] e^{-i 2\pi km/(N/2)}, \quad
+X_{\text{odd}}[k] = \sum_{m=0}^{N/2-1} x[2m+1] e^{-i 2\pi km/(N/2)}
 $$
 
-Where $\omega = e^{-i 2\pi / N}$ is the "twiddle factor."
-
-Due to the periodicity of the DFT, $E[k + N/2] = E[k]$ and $O[k + N/2] = O[k]$. However, the twiddle factor undergoes a phase shift: $\omega^{k + N/2} = e^{-i 2\pi (k+N/2)/N} = e^{-i 2\pi k/N} e^{-i \pi} = -\omega^k$. This symmetry allows us to compute two values of $X$ for the cost of one:
+Then:
 
 $$
-\begin{aligned}
-X[k] &= E[k] + \omega^k O[k] \newline
-X[k + N/2] &= E[k] - \omega^k O[k]
-\end{aligned}
+X[k] = X_{\text{even}}[k] + e^{-i 2\pi k/N} X_{\text{odd}}[k]
 $$
 
+But we need $N$ outputs, not just $N/2$. The half size DFTs are periodic with period $N/2$, so $X_{\text{even}}[k + N/2] = X_{\text{even}}[k]$. For the second half of the output, the twiddle factor picks up a phase shift: $e^{-i 2\pi (k+N/2)/N} = -e^{-i 2\pi k/N}$. This gives:
+
+$$
+X[k + N/2] = X_{\text{even}}[k] - e^{-i 2\pi k/N} X_{\text{odd}}[k]
+$$
+
+Recursively splitting until reaching size 1 (where the DFT is trivial) gives the FFT. The recursion has depth $\log_2 N$, and each level performs $O(N)$ operations, yielding $O(N \log N)$ total complexity.
+
+
+## A practical example: image deconvolution
+
+Deconvolution shows how the DFT's properties work in practice. The problem: recover a sharp image from a blurred one. This works because blurring is an LTI operation.
+
+You can find the code [here](https://github.com/smdaa/dsp-manifesto/blob/main/fft/wiener-deconvolution.py)
+
+
+### The two-dimensional extension
+
+The 2D DFT extends naturally. For an image $x[m, n]$ of size $M \times N$:
+
+$$
+X[k_1, k_2] = \sum_{m=0}^{M-1} \sum_{n=0}^{N-1} x[m, n] e^{-i 2\pi (k_1 m/M + k_2 n/N)}
+$$
+
+This separates into 1D transforms along each axis.
+
+### Modeling the blur
+
+When a camera moves during exposure, each point of light smears across multiple pixels. This is the point spread function, or blur kernel $h$. A stationary, focused camera has a delta function kernel. Motion creates a blur.
+
+We use horizontal motion blur: a 15×15 matrix with ones along the middle row, normalized to sum to 1. This replaces each pixel with the average of its horizontal neighbors.
+
+![](/assets/the-discrete-fourier-transform-as-a-change-of-basis/kernel.png)
+
+![](/assets/the-discrete-fourier-transform-as-a-change-of-basis/original-vs-blurred.png)
+
+
+### Sinusoid test
+
+When we blur a 2D sinusoid image the output image has the same frequency, The kernel can't change an eigenfunction's frequency, only scale and shift it.
+
+![](/assets/the-discrete-fourier-transform-as-a-change-of-basis/sinusoid-test.png)
+
+### Simple deconvolution
+
+Blurring is $Y[k_1, k_2] = H[k_1, k_2] \cdot X[k_1, k_2]$ in frequency domain. Deconvolution inverts: $X[k_1, k_2] = Y[k_1, k_2] / H[k_1, k_2]$. Add $\epsilon = 10^{-10}$ to avoid division by zero. For noise-free images, this perfectly reconstructs the original image.
+
+![](/assets/the-discrete-fourier-transform-as-a-change-of-basis/blurred-vs-deblurred.png)
+
+The kernel's FFT shows which frequencies get attenuated. Horizontal motion blur preserves vertical frequencies but suppresses horizontal frequencies. Deconvolution inverts this: divide by $H$ to restore suppressed frequencies.
+
+![](/assets/the-discrete-fourier-transform-as-a-change-of-basis/kernel-fft.png)
+
+### The noise problem
+
+Real images have noise. We will add Gaussian noise with $\sigma = 0.01$ after blurring. Now simple deconvolution fails. Where $|H[k_1, k_2]| \approx 0$, dividing amplifies noise massively. Small noise becomes huge artifacts.
+
+Wiener filtering adds regularization:
+
+$$
+W[k_1, k_2] = \frac{H^*[k_1, k_2]}{|H[k_1, k_2]|^2 + K}
+$$
+
+When $|H|^2 \gg K$: full inversion. When $|H|^2 \ll K$: suppress instead of amplify. The parameter $K$ trades detail for noise. At $K = 0.002$, we recover detail without catastrophic artifacts.
+
+![](/assets/the-discrete-fourier-transform-as-a-change-of-basis/wiener-deconvolution.png)
+
+## Conclusion
+
+The Discrete Fourier Transform decomposes a signal into frequency components. For an input of $N$ samples, it produces $N$ frequency coefficients. Each coefficient tells you how much of a particular frequency is present in the signal.
+
+The DFT can be understood as a change of basis. The signal is the same, but we're expressing it in terms of complex exponentials instead of time-domain samples.
+
+The key reason complex exponentials matter is that they're eigenfunctions of LTI systems. This means convolution in the time domain becomes multiplication in the frequency domain, which is both conceptually simpler and computationally faster with the FFT algorithm.
