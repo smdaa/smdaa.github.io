@@ -9,9 +9,13 @@ tags = ["fourier-transform", "signal-processing", "linear-algebra", "fft"]
 
 ## Introduction
 
-The Fourier Transform is usually introduced as a way to analyze frequencies in signals. But its importance goes far beyond spectral analysis: it speeds up convolution, simplifies linear systems, and underpins fast algorithms used throughout science and engineering.
+The Fourier Transform is usually introduced as a way to analyze frequencies in signals. But its importance goes far beyond spectral analysis.
 
-All of these uses come from one idea: the Discrete Fourier Transform is a change of basis. Instead of describing a signal by its samples in time, the DFT represents it in terms of complex exponentials. This viewpoint explains both how the transform works and why it is so effective in practice.
+At its core, the Discrete Fourier Transform is a change of basis. It represents a signal using complex exponentials instead of time-domain samples, without altering the underlying information.
+
+Why complex exponentials specifically? And what makes the Fast Fourier Transform fast?
+
+We will answer these questions and conclude with a practical example: recovering a sharp image from motion blur using frequency-domain deconvolution.
 
 ## The Fourier transform
 
@@ -41,7 +45,7 @@ $$
 f_k = \frac{k f_s}{N}, \quad k = 0,1,\dots,N-1
 $$
 
-The DFT implicitly treats the signal as periodic with period $N$ samples. In other words, the sequence $x[n]$ is assumed to repeat indefinitely in time. As a consequence, discontinuities at the boundaries of the $N$-sample segment can introduce spectral leakage, and the frequency resolution is limited to $\Delta f = f_s / N$. More details on these effects are discussed later in the practical considerations.
+The DFT implicitly treats the signal as periodic with period $N$ samples. In other words, the sequence $x[n]$ is assumed to repeat indefinitely in time.
 
 ## Matrix form and change of basis
 
