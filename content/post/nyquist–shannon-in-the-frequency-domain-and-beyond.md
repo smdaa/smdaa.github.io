@@ -1,7 +1,7 @@
 +++
 title = "Nyquist–Shannon in the frequency domain, and beyond"
 date = 2025-11-22
-tags = ["sampling", "aliasing", "compressive-sensing", "sparsity"]
+tags = ["sampling", "compressive-sensing", "signal-processing", "linear-algebra"]
 +++
 
 {{< toc >}}
