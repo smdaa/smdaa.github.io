@@ -1,6 +1,6 @@
 +++
 title = "Building an RTL-SDR FM radio from scratch in C, part 1: the USB driver"
-date = 2026-07-26
+date = 2026-07-30
 tags = ["c", "usb", "rtl-sdr"]
 +++
 
