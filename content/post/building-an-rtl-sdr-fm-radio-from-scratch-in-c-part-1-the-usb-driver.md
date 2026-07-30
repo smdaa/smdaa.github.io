@@ -73,7 +73,7 @@ $ grep -l 2838 /sys/bus/usb/devices/*/idProduct
 /sys/bus/usb/devices/3-2/idProduct
 ```
 
-In C that grep becomes a walk over the same folder, reading two attributes per entry — vendor and product, since a product id alone is not unique — and comparing them:
+In C that grep becomes a walk over the same folder, reading two attributes per entry: vendor and product, since a product id alone is not unique, and comparing them:
 
 ```c
 while ((entry = readdir(dir)) != NULL)
@@ -288,7 +288,7 @@ Every request so far came from the USB standard, which has nothing to say about 
 
 To power on the demodulator, set a frequency, or set a sample rate, we have to configure the RTL2832U itself, and all of that is writing into the chip's registers.
 
-The addresses and the request shape below come from the RTL2832U datasheet, in its register description sections. Realtek never meant it for the public — it was marked for development partners only — but a copy is not hard to find online.
+The addresses and the request shape below come from the RTL2832U datasheet, in its register description sections. Realtek never meant it for the public, it was marked for development partners only, but a copy is not hard to find online.
 
 Registers are reached with vendor commands, the same `struct usbdevfs_ctrltransfer` as before with different values in the fields. The two calls below are what `rtl_read_reg` and `rtl_write_reg` wrap in the source.
 
