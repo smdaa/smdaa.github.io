@@ -6,7 +6,7 @@ enableRobotsTXT = true
 
 [params]
   description = "A minimalist Hugo site"
-  footer = "&copy; 2025 Saad Mdaa"
+  footer = "&copy; {Year} Saad Mdaa"
 
 [[menu.main]]
   name = "Home"
