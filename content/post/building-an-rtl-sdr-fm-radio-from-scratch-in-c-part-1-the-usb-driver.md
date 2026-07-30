@@ -8,32 +8,34 @@ tags = ["c", "usb", "rtl-sdr"]
 
 ## Introduction
 
-This is the first part of a series about building an FM radio from scratch in C. The end goal is audio: tune to a station and hear it come out of the speakers, with no third party code in the path.
+This is the first part of a series about building an FM radio from scratch in C, without using any third-party library.
 
-That means no librtlsdr, and no libusb either. Everything talks to the hardware through the Linux kernel's own USB interface, which is a file and a system call.
+That means no [librtlsdr](https://github.com/osmocom/rtl-sdr), and no [libusb](https://libusb.info/) either. Everything talks to the hardware through the Linux kernel's own USB interface, which is a file and a system call.
 
-Which also means everything here is Linux only. And if you are still on Windows, take a moment to ask yourself why, after all these years of abuse, you are still there. No judgement. Only questions.
+Which also means everything here is Linux-only. And if you are still on Windows, take a moment to ask yourself why, after all these years of abuse, you are still there.
 
-This part is the groundwork: finding the dongle, taking it away from the driver that already owns it, and getting to the point where we can read and write the chip's registers.
+This part is the groundwork: finding the dongle, taking it away from the driver, and getting to the point where we can read and write the chip's registers.
+
+You can find the full source code [here](https://github.com/smdaa/sdr).
 
 ## The hardware
 
 The device we will be talking to is a [Nooelec NESDR SMArt v5](https://www.nooelec.com/store/nesdr-smart-sdr.html), a USB dongle that covers radio frequencies from $100$ kHz to $1.75$ GHz with up to $3.2$ MHz of instantaneous bandwidth.
 
-![](/assets/building-an-rtl-sdr-fm-radio-from-scratch-in-c-part-1-the-usb-driver/nesdr-smart-v5.png)
+![The Nooelec NESDR SMArt v5: a black aluminium USB dongle with an SMA antenna connector at one end](/assets/building-an-rtl-sdr-fm-radio-from-scratch-in-c-part-1-the-usb-driver/nesdr-smart-v5.png)
 
 
-![](/assets/building-an-rtl-sdr-fm-radio-from-scratch-in-c-part-1-the-usb-driver/simplified-schematic.png)
+![Block diagram: the SMA input feeds a diplexer, which sends 0.1 to 30 MHz straight to the RTL2832 for direct sampling and VHF/UHF through the R860 tuner for quadrature sampling; the RTL2832 sends IQ samples out over USB, with a 28.8 MHz local oscillator clocking both chips](/assets/building-an-rtl-sdr-fm-radio-from-scratch-in-c-part-1-the-usb-driver/simplified-schematic.png)
 
 Block diagram from the [NESDR SMArt v5 datasheet](https://www.nooelec.com/store/downloads/dl/file/id/111/product/249/nesdr_smart_rtl_sdr_v5_datasheet_revision_1.pdf)
 
 Inside it there are two chips:
 
-The first is the Rafael Micro **R820T2** tuner. It is the analog front end: it takes whatever the antenna picks up across that entire $1.75$ GHz range and mixes the slice we care about down to a fixed intermediate frequency.
+The first is the Rafael Micro **R820T2** tuner. It is the analog front end: it takes whatever the antenna picks up across most of that range and mixes the slice we care about down to a fixed intermediate frequency.
 
 The second is the Realtek **RTL2832U**, a demodulator and USB interface. It digitizes the intermediate frequency coming out of the tuner and streams the resulting samples to the host over USB.
 
-> **Fun fact:** the RTL2832U was built to receive DVB-T television. [Eric Fry found](https://osmocom.org/projects/rtl-sdr/wiki/rtl-sdr) that it can also be told to skip the TV decoding and hand over the raw I/Q samples instead, which is how a TV receiver became the cheapest SDR around.
+> **Fun fact:** the RTL2832U was built to receive DVB-T television. [Eric Fry noticed in 2010, and Antti Palosaari confirmed in 2012](https://osmocom.org/projects/rtl-sdr/wiki/rtl-sdr), that it can also be told to skip the TV decoding and hand over the raw I/Q samples instead. Steve Markgraf then wrote the driver that turned that into something usable, which is how a TV receiver became the cheapest SDR around.
 
 ## Finding the USB device file
 
@@ -46,11 +48,11 @@ $ lsusb
 Bus 003 Device 010: ID 0bda:2838 Realtek Semiconductor Corp. RTL2838 DVB-T
 ```
 
-So we can reach it through the file `/dev/bus/usb/003/010`
+So we can reach it through the file `/dev/bus/usb/003/010`.
 
 This path is not stable. Device numbers are handed out at plug time, so they move around.
 
-So we need an identifier that belongs to the device itself instead of one the kernel hands out. `lsusb` already printed it: `0bda:2838`, the vendor id and the product id.
+We need an identifier that belongs to the device itself instead of one the kernel hands out. `lsusb` already printed it: `0bda:2838`, the vendor id and the product id.
 
 Those two are burned into the device. `0bda` is Realtek, assigned to them by the USB-IF, and `2838` is the model. If we unplug the USB dongle and move it to another port, it will still answer `0bda:2838`.
 
@@ -64,14 +66,14 @@ $ cat /sys/bus/usb/devices/3-2/idVendor
 0bda
 ```
 
-Which makes finding the dongle a one liner:
+Which makes finding the dongle a one-liner:
 
 ```
 $ grep -l 2838 /sys/bus/usb/devices/*/idProduct
 /sys/bus/usb/devices/3-2/idProduct
 ```
 
-In C that grep becomes a walk over the same folder, reading two attributes per entry and comparing them:
+In C that grep becomes a walk over the same folder, reading two attributes per entry — vendor and product, since a product id alone is not unique — and comparing them:
 
 ```c
 while ((entry = readdir(dir)) != NULL)
@@ -101,20 +103,20 @@ snprintf(path, sizeof(path), "/dev/bus/usb/%03d/%03d", atoi(busnum), atoi(devnum
 fd = open(path, O_RDWR);
 ```
 
-`%03d` because the directory names are zero padded, and `O_RDWR` because we will be reading from the device and writing to it.
+`%03d` because the directory names are zero-padded, and `O_RDWR` because we will be reading from the device and writing to it.
 
 ## The kernel got there first
 
-Okay so we have located the USB device file, but it does not mean we get to use it yet.
+Okay, so we have located the USB device file, but it does not mean we get to use it yet.
 
-As far as the kernel is concerned this is still a television receiver. So when we plugged it in, it went looking for a driver, found `dvb_usb_rtl28xxu`, and handed the device over to the driver:
+As far as the kernel is concerned, this is still a television receiver. So when we plugged it in, it went looking for a driver, found `dvb_usb_rtl28xxu`, and handed the device over to the driver:
 
 ```
 $ readlink -f /sys/bus/usb/devices/3-2:1.0/driver
 /sys/bus/usb/drivers/dvb_usb_rtl28xxu
 ```
 
-That driver is going to decode television for us, which is not what we want. We want the raw IQ samples, so we need the interface for ourselves.
+That driver is going to decode television for us, which is not what we want. We want the raw I/Q samples, so we need the interface for ourselves.
 
 The usual lazy advice is to blacklist `dvb_usb_rtl28xxu` in [`modprobe.d`](https://man7.org/linux/man-pages/man5/modprobe.d.5.html) so it never loads.
 
@@ -163,11 +165,12 @@ ioctl(fd, USBDEVFS_IOCTL, &reconnect);
 
 We now own the interface, but we still have not asked the device anything.
 
-Data does not go to a device as such, it goes to one of its endpoints. An endpoint is a numbered channel with a direction, and a device can have several.
+Data does not go to a device as such; it goes to one of its endpoints. An endpoint is a numbered channel with a direction, and a device can have several.
 
-Endpoint 0 is the exception. Every device is required to have it, it works both ways. It is also the only endpoint we can use right now, since we do not yet know what other endpoints this device has.
+Endpoint 0 is the exception. Every device is required to have it, and it works both ways. It is also the only endpoint we can use right now, since we do not yet know what other endpoints this device has.
 
 So we ask the USB dongle to describe itself. The answer is the device descriptor, 18 bytes with the USB version it speaks, its vendor and product ids, and how many configurations it has. The layout is fixed by the USB standard.
+
 The question is always the same shape, [five fields](https://www.beyondlogic.org/usbnutshell/usb6.shtml):
 
 | field          | meaning                                  | for this request                                     |
@@ -194,7 +197,7 @@ struct usbdevfs_ctrltransfer ctrl = {
 ioctl(fd, USBDEVFS_CONTROL, &ctrl);
 ```
 
-The kernel sends it, waits for the reply, and writes it into `buf`. if we print the buffer we can see the 18 bytes:
+The kernel sends it, waits for the reply, and writes it into `buf`. If we print the buffer we can see the 18 bytes:
 
 ```
 Device descriptor (hex): 12 01 00 02 00 00 00 40 da 0b 38 28 00 01 01 02 03 01
@@ -202,7 +205,7 @@ Device descriptor (hex): 12 01 00 02 00 00 00 40 da 0b 38 28 00 01 01 02 03 01
 
 Every byte in there has a fixed place. The interesting bytes:
 
-| byte  | field                | value                                  |
+| byte  | value                | meaning                                |
 | ----- | -------------------- | -------------------------------------- |
 | 0     | `12`                 | length of the descriptor, 18            |
 | 1     | `01`                 | descriptor type, 1 for DEVICE           |
@@ -231,7 +234,7 @@ That last byte of the device descriptor, the byte saying one configuration, was 
 
 This configuration descriptor is not a fixed size like the device descriptor. It comes back as a chain: the configuration itself, then the interface, then one descriptor per endpoint, packed one after another in a single blob.
 
-Which leaves us not knowing how many bytes to ask for. The tidy way is to ask twice, first for the 9 byte header to read `wTotalLength` out of it, then for that many bytes. We will just hand it a 255 byte buffer and let it send whatever it has.
+Which leaves us not knowing how many bytes to ask for. The tidy way is to ask twice, first for the 9-byte header to read `wTotalLength` out of it, then for that many bytes. We will just hand it a 255-byte buffer and let it send whatever it has.
 
 The request is the same as before with a different `wValue`, type `02` for CONFIGURATION:
 
@@ -277,17 +280,17 @@ Directions are named from the host's point of view, so IN means into the PC. The
 
 Bulk means no timing guarantee but everything is checked and resent if it gets corrupted.
 
-So `0x81` is where the samples will come out. The rest of this post is about getting the RTL2832U to start pushing them into it.
+So `0x81` is where the samples will come out. The rest of this post is about learning to talk to the RTL2832U itself, which is what it will take to get it pushing samples into that endpoint.
 
 ## Reading and writing registers
 
 Every request so far came from the USB standard, which has nothing to say about radios.
 
-To power on the demodulator, set a frequency or set a sample rate we have to configure the RTL2832U itself, and all of that is writing into the chip's registers.
+To power on the demodulator, set a frequency, or set a sample rate, we have to configure the RTL2832U itself, and all of that is writing into the chip's registers.
 
-The addresses and the request shape below come from the RTL2832U datasheet, in its register description sections. Realtek never meant it for the public, it was marked for development partners only, but a copy is not hard to find online.
+The addresses and the request shape below come from the RTL2832U datasheet, in its register description sections. Realtek never meant it for the public — it was marked for development partners only — but a copy is not hard to find online.
 
-Registers are reached with vendor commands, the same `struct usbdevfs_ctrltransfer` as before with different values in the fields.
+Registers are reached with vendor commands, the same `struct usbdevfs_ctrltransfer` as before with different values in the fields. The two calls below are what `rtl_read_reg` and `rtl_write_reg` wrap in the source.
 
 `wIndex` carries two things: which part of the chip we are addressing, which the datasheet calls the block, and whether we are reading or writing. Reading from the system block is `0x0200` and writing to it is `0x0210`. The datasheet lists seven blocks in all.
 
@@ -309,9 +312,9 @@ struct usbdevfs_ctrltransfer ctrl = {
 ioctl(fd, USBDEVFS_CONTROL, &ctrl);
 ```
 
-`0xC0` is device to host like `0x80` was, but vendor instead of standard.
+`0xc0` is device to host like `0x80` was, but vendor instead of standard.
 
-The register reads back as `0x20`. In binary that is `0010 0000`, and the datasheet gives a meaning to each bit:
+The register reads back as `0x20`. In binary that is `0010 0000`, and the datasheet gives a meaning to each bit; the ones that matter here:
 
 | bit | meaning              | ours    |
 | --- | -------------------- | ------- |
