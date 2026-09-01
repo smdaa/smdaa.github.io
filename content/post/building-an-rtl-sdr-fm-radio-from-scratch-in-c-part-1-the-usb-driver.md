@@ -73,7 +73,7 @@ $ grep -l 2838 /sys/bus/usb/devices/*/idProduct
 /sys/bus/usb/devices/3-2/idProduct
 ```
 
-In C that grep becomes a walk over the same folder, reading two attributes per entry: vendor and product, since a product id alone is not unique, and comparing them:
+A product id alone is not unique, so we match on both vendor and product. In C that grep becomes a walk over the same folder, reading both attributes per entry and comparing them:
 
 ```c
 while ((entry = readdir(dir)) != NULL)
@@ -288,7 +288,7 @@ Every request so far came from the USB standard, which has nothing to say about 
 
 To power on the demodulator, set a frequency, or set a sample rate, we have to configure the RTL2832U itself, and all of that is writing into the chip's registers.
 
-The addresses and the request shape below come from the RTL2832U datasheet, in its register description sections. Realtek never meant it for the public, it was marked for development partners only, but a copy is not hard to find online.
+The addresses and the request shape below come from the RTL2832U datasheet, in its register description sections. Realtek never meant it for the public. It was marked for development partners only, but a copy is not hard to find online.
 
 Registers are reached with vendor commands, the same `struct usbdevfs_ctrltransfer` as before with different values in the fields. The two calls below are what `rtl_read_reg` and `rtl_write_reg` wrap in the source.
 
@@ -347,6 +347,6 @@ The program finds the dongle on any port, takes the interface from the kernel dr
 
 It still cannot tune. We have `rtl_read_reg` and `rtl_write_reg`, but we do not know what most of the registers do.
 
-The next part is about the hardware itself: what happens between the antenna and the bytes, how the tuner works, and what I and Q are.
+The next part is about the chip itself: what is actually inside the dongle, why the tuner cannot be reached directly, and how you work out what to write to a chip whose datasheet was never meant to leave the building.
 
-Stay tuned. By part 3 that should stop being a figure of speech.
+By the end of it, this stops being a television receiver.
